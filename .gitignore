@@ -7,4 +7,31 @@ wheels/
 *.egg-info
 
 # Virtual environments
-.venv
+.venv/
+
+# Jupyter and local tooling
+.ipynb_checkpoints/
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+.coverage
+
+# Local data and proprietary acquisition files
+*.csv
+*.xlsx
+*.zip
+*.hpf
+*.emc
+*.emp
+*.ewp
+*.pptx
+
+# Generated analysis output
+output/
+
+# Local environment and operating-system files
+.env
+.env.*
+!.env.example
+.DS_Store
+Thumbs.db
