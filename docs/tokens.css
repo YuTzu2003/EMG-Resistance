@@ -3,20 +3,20 @@
  * pre-emit critique: P5 H5 E5 S5 R5 V5
  */
 :root {
-  --color-paper: oklch(98% 0.009 45);
-  --color-surface: oklch(95.5% 0.014 45);
-  --color-surface-raised: oklch(99% 0.005 45);
-  --color-ink: oklch(22% 0.025 35);
-  --color-text: oklch(34% 0.022 38);
-  --color-muted: oklch(48% 0.018 42);
-  --color-rule: oklch(86% 0.018 45);
-  --color-rule-strong: oklch(70% 0.026 42);
-  --color-accent: oklch(55% 0.17 28);
-  --color-accent-soft: oklch(92% 0.035 30);
-  --color-accent-ink: oklch(98% 0.009 45);
-  --color-focus: oklch(31% 0.075 32);
-  --color-alert: oklch(48% 0.14 28);
-  --color-backdrop: oklch(20% 0.025 35 / 0.32);
+  --color-paper: #f6f7f4;
+  --color-surface: #edf0eb;
+  --color-surface-raised: #ffffff;
+  --color-ink: #193236;
+  --color-text: #405257;
+  --color-muted: #748287;
+  --color-rule: #d7dfdc;
+  --color-rule-strong: #86989a;
+  --color-accent: #247d78;
+  --color-accent-soft: #e2efeb;
+  --color-accent-ink: #ffffff;
+  --color-focus: #193236;
+  --color-alert: #b87938;
+  --color-backdrop: rgb(25 50 54 / 35%);
   --color-transparent: oklch(0% 0 0 / 0);
   --color-series-1: oklch(52% 0.16 24);
   --color-series-2: oklch(59% 0.15 42);

@@ -49,6 +49,7 @@
     <article id="report" class="report-document" aria-labelledby="report-title">
       <header class="report-heading">
         <div>
+          <p class="technical-label">SESSION ASSESSMENT</p>
           <p id="report-recording" class="report-recording">正在讀取紀錄</p>
           <h1 id="report-title">個人騎乘肌電分析</h1>
         </div>
@@ -58,6 +59,11 @@
       <section class="report-opening" aria-labelledby="report-headline">
         <h2 id="report-headline">正在讀取程式分析…</h2>
         <p id="report-overview">正在整理這位受測者的活化穩定度、左右相對活化與阻力節律。</p>
+      </section>
+      <section class="report-stats" aria-label="本次騎乘摘要">
+        <div class="report-stat"><span>左側中位踏頻</span><strong id="stat-left-cadence">—</strong><small>次／分</small></div>
+        <div class="report-stat"><span>右側中位踏頻</span><strong id="stat-right-cadence">—</strong><small>次／分</small></div>
+        <div class="report-stat"><span>主要回看肌肉</span><strong id="stat-focus-muscle">—</strong><small id="stat-focus-score">週期一致度 —</small></div>
       </section>
 
       <section class="analysis-block" aria-labelledby="program-analysis-title">
@@ -112,8 +118,8 @@
         </div>
         <p>阻力值沿用原始 Resistance 檔單位。步頻以同側有號阻力正峰計算，一腳每圈一次；不是雙腳合計。</p>
       </div>
-      <div id="resistance-chart" class="chart" aria-label="左右阻力曲線"></div>
-      <div id="cadence-chart" class="chart" aria-label="左右腳踩踏頻率"></div>
+      <div id="resistance-chart" class="chart chart--compact" aria-label="左右阻力曲線"></div>
+      <div id="cadence-chart" class="chart chart--compact" aria-label="左右腳踩踏頻率"></div>
       <article class="joint-analysis" aria-labelledby="joint-analysis-title">
         <h3 id="joint-analysis-title">EMG × 阻力整體對照</h3>
         <p id="joint-analysis">正在讀取整體對照結果…</p>
@@ -123,13 +129,14 @@
     <section id="synchronization" class="sync-section" aria-labelledby="sync-title">
       <div class="section-heading">
         <div>
+          <p class="technical-label">TIME ALIGNMENT</p>
           <h2 id="sync-title">時間同步折線對照</h2>
         </div>
         <p>同側 EMG 彙整包絡與阻力各自分圖，避免左右訊號重疊。拖曳任一圖或調整上方時間軸，即可對照同一時段。</p>
       </div>
       <div class="sync-chart-grid">
-        <div id="sync-left-chart" class="chart sync-chart" aria-label="左側 EMG 與阻力時間同步折線圖"></div>
-        <div id="sync-right-chart" class="chart sync-chart" aria-label="右側 EMG 與阻力時間同步折線圖"></div>
+        <article class="sync-chart-card"><h3>左側訊號</h3><div id="sync-left-chart" class="chart sync-chart" aria-label="左側 EMG 與阻力時間同步折線圖"></div></article>
+        <article class="sync-chart-card"><h3>右側訊號</h3><div id="sync-right-chart" class="chart sync-chart" aria-label="右側 EMG 與阻力時間同步折線圖"></div></article>
       </div>
     </section>
     </div>
