@@ -190,7 +190,7 @@ function renderGeneratedReport() {
   if (!state.reportMarkdown || !state.analysis || !state.trace) {
     source.textContent = "這筆紀錄尚未匯出分析報告。";
     const message = document.createElement("p");
-    message.textContent = "請先執行 python main.py report，或用 python main.py run 重新分析。";
+    message.textContent = "請先把輸出紀錄資料夾傳給 python main.py report，或用 python main.py run 重新分析。";
     host.replaceChildren(message);
     return;
   }

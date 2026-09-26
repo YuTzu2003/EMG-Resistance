@@ -5,8 +5,6 @@ from pathlib import Path
 _PROVIDERS = {"none", "ollama", "openai"}
 _DATA_SCOPES = {"summary", "aligned_sample"}
 _REPORT_TEMPLATES = {"rider", "research"}
-RECORDINGS = ("Recording_A", "Recording_B")
-DEFAULT_PRACTICE_ROOT = Path("practice")
 DEFAULT_OUTPUT_ROOT = Path("output")
 DEFAULT_SITE_ROOT = Path("docs")
 DEFAULT_ENV_FILE = Path(".env")

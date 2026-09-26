@@ -6,7 +6,7 @@ from pathlib import Path
 import re
 import pandas as pd
 from .config import AppConfig
-from .llm_client import LLMError, generate_text
+from .client import LLMError, generate_text
 
 PROMPT_VERSION = "cycling-emg-report-v1"
 MUSCLE_LABELS = {

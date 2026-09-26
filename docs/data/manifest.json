@@ -1,14 +1,9 @@
 {
   "recordings": [
     {
-      "id": "Recording_A",
-      "label": "Recording A",
+      "id": "Participant_01_Test_A",
+      "label": "Participant 01 Test A",
       "report_available": true
-    },
-    {
-      "id": "Recording_B",
-      "label": "Recording B",
-      "report_available": false
     }
   ]
 }

@@ -180,14 +180,31 @@ def sync_to_resistance(emg_csv: Path,resistance_csv: Path,destination: Path,offs
     }
 
 
-def process_recording(recording: Path,output_root: Path,file_utility: Path | None = None,use_exported_csv: bool = False,emg_event_s: float | None = None,resistance_event_s: float | None = None,no_auto_sync: bool = False,) -> dict:
-    hpf = recording / "EMG" / "EMG_Raw.hpf"
-    resistance = recording / "Resistance" / "Resistance.csv"
+def process_recording(
+    hpf: Path,
+    resistance: Path,
+    output_root: Path,
+    recording_name: str,
+    file_utility: Path | None = None,
+    exported_csv: Path | None = None,
+    emg_event_s: float | None = None,
+    resistance_event_s: float | None = None,
+    no_auto_sync: bool = False,
+) -> dict:
+    """Process explicit HPF and resistance files into one named result folder."""
+    hpf = hpf.expanduser().resolve()
+    resistance = resistance.expanduser().resolve()
+    if not resistance.is_file():
+        raise FileNotFoundError(f"Resistance CSV not found: {resistance}")
     metadata = read_hpf_metadata(hpf)
-    exported = hpf.with_suffix(".csv") if use_exported_csv else export_hpf(hpf, find_file_utility(file_utility))
+    exported = (
+        exported_csv.expanduser().resolve()
+        if exported_csv is not None
+        else export_hpf(hpf, find_file_utility(file_utility))
+    )
     if not exported.is_file():
         raise FileNotFoundError(f"Officially exported CSV not found: {exported}")
-    output = output_root / recording.name
+    output = output_root.expanduser().resolve() / recording_name
     output.mkdir(parents=True, exist_ok=True)
     emg_dir = output / "emg"
     plot_dir = output / "plots"
@@ -218,6 +235,7 @@ def process_recording(recording: Path,output_root: Path,file_utility: Path | Non
     )
     metadata.update(summary)
     metadata["source_hpf"] = str(hpf)
+    metadata["source_resistance_csv"] = str(resistance)
     metadata["file_utility_csv"] = str(exported)
     metadata["processing"] = processing
     metadata["normalized_emg_csv"] = str(emg_csv)

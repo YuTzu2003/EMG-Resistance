@@ -3,7 +3,6 @@ import json
 import shutil
 from pathlib import Path
 
-RECORDINGS = ("Recording_A", "Recording_B")
 FILES = (
     ("sync/preview_10hz.csv", "preview_10hz.csv"),
     ("cadence/stroke_events.csv", "stroke_events.csv"),
@@ -28,8 +27,11 @@ def _public_metadata(source: Path) -> dict:
 def export_static_data(output_root: Path,site_data_root: Path,recordings: tuple[str, ...] | None = None,) -> None:
     if recordings is None:
         recordings = tuple(
-            recording for recording in RECORDINGS
-            if all((output_root / recording / relative).is_file() for relative, _ in FILES) and (output_root / recording / "metadata.json").is_file())
+            path.name for path in sorted(output_root.iterdir())
+            if path.is_dir()
+            and all((path / relative).is_file() for relative, _ in FILES)
+            and (path / "metadata.json").is_file()
+        )
     if not recordings:
         raise FileNotFoundError(f"No complete analysis output found under {output_root}")
     
