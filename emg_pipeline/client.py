@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 import json
 from urllib.error import HTTPError, URLError
-from urllib.request import Request, urlopen
+from urllib.request import build_opener, ProxyHandler, Request, urlopen
 from .config import AppConfig
 
 class LLMError(RuntimeError):
@@ -14,10 +14,18 @@ class LLMResponse:
     model: str
     endpoint: str
 
-def _post_json(url: str, payload: dict, headers: dict[str, str], timeout_s: float) -> dict:
+def _post_json(
+    url: str,
+    payload: dict,
+    headers: dict[str, str],
+    timeout_s: float,
+    bypass_proxy: bool = False,
+) -> dict:
     request = Request(url,data=json.dumps(payload, ensure_ascii=False).encode("utf-8"),headers={"Content-Type": "application/json", **headers},method="POST",)
     try:
-        with urlopen(request, timeout=timeout_s) as response:
+        opener = build_opener(ProxyHandler({})) if bypass_proxy else None
+        response_context = opener.open(request, timeout=timeout_s) if opener else urlopen(request, timeout=timeout_s)
+        with response_context as response:
             return json.loads(response.read().decode("utf-8"))
     except HTTPError as exc:
         detail = exc.read().decode("utf-8", errors="replace")[:500]
@@ -40,7 +48,7 @@ def generate_text(config: AppConfig, system_prompt: str, user_prompt: str) -> LL
             "stream": False,
             "options": {"temperature": config.llm_temperature},
         }
-        body = _post_json(endpoint, payload, {}, config.llm_timeout_s)
+        body = _post_json(endpoint, payload, {}, config.llm_timeout_s, bypass_proxy=True)
         content = body.get("message", {}).get("content", "")
     else:
         endpoint = f"{config.llm_base_url}/chat/completions"

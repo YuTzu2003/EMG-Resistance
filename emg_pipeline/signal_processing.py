@@ -3,8 +3,6 @@ import json
 import os
 from pathlib import Path
 import re
-import shutil
-import subprocess
 import tempfile
 import xml.etree.ElementTree as ET
 
@@ -16,30 +14,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from scipy.signal import butter, find_peaks, sosfiltfilt
-
-
-def find_file_utility(explicit: Path | None = None) -> Path:
-    candidates = [explicit] if explicit else [
-        Path(r"C:\Program Files (x86)\Delsys, Inc\Delsys File Utility\DelsysFileUtil.exe"),
-        Path(r"C:\Program Files\Delsys, Inc\Delsys File Utility\DelsysFileUtil.exe"),
-    ]
-    command = shutil.which("DelsysFileUtil.exe")
-    if command and not explicit:
-        candidates.append(Path(command))
-    for candidate in candidates:
-        if candidate is not None and candidate.is_file():
-            return candidate
-    raise FileNotFoundError("DelsysFileUtil.exe not found; pass --file-utility PATH")
-
-def export_hpf(hpf: Path, file_utility: Path) -> Path:
-    exported = hpf.with_suffix(".csv")
-    try:
-        subprocess.run([str(file_utility),"-nogui","-o","CSV","-i", str(hpf)],check=True,capture_output=True,text=True,timeout=180,)
-    except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as exc:
-        raise RuntimeError(f"Delsys File Utility failed to export {hpf}: {exc}") from exc
-    if not exported.is_file() or exported.stat().st_size == 0:
-        raise RuntimeError(f"Delsys File Utility produced no CSV: {exported}")
-    return exported
+from .delsys_export import export_hpf
 
 def normalize_emg_csv(source: Path, destination: Path, metadata: dict) -> tuple[dict, tuple]:
     with source.open("r", encoding="utf-8-sig", newline="") as stream:
@@ -183,15 +158,14 @@ def sync_to_resistance(emg_csv: Path,resistance_csv: Path,destination: Path,offs
 def process_recording(
     hpf: Path,
     resistance: Path,
-    output_root: Path,
-    recording_name: str,
-    file_utility: Path | None = None,
+    output: Path,
     exported_csv: Path | None = None,
+    file_utility: Path | None = None,
     emg_event_s: float | None = None,
     resistance_event_s: float | None = None,
     no_auto_sync: bool = False,
 ) -> dict:
-    """Process explicit HPF and resistance files into one named result folder."""
+    """Process explicit HPF and resistance files into the requested output folder."""
     hpf = hpf.expanduser().resolve()
     resistance = resistance.expanduser().resolve()
     if not resistance.is_file():
@@ -200,43 +174,47 @@ def process_recording(
     exported = (
         exported_csv.expanduser().resolve()
         if exported_csv is not None
-        else export_hpf(hpf, find_file_utility(file_utility))
+        else export_hpf(hpf, file_utility)
     )
     if not exported.is_file():
         raise FileNotFoundError(f"Officially exported CSV not found: {exported}")
-    output = output_root.expanduser().resolve() / recording_name
+    output = output.expanduser().resolve()
     output.mkdir(parents=True, exist_ok=True)
-    emg_dir = output / "emg"
-    plot_dir = output / "plots"
-    sync_dir = output / "sync"
+    emg_dir = output / "emg_signals"
+    plot_dir = output / "figures"
+    sync_dir = output / "synchronized_data"
     for directory in (emg_dir, plot_dir, sync_dir):
         directory.mkdir(parents=True, exist_ok=True)
-    (sync_dir / "rms_resistance.csv").unlink(missing_ok=True)
-    (sync_dir / "preview_10hz.csv").unlink(missing_ok=True)
-    (plot_dir / "alignment_check.png").unlink(missing_ok=True)
-    for generated in (plot_dir / "aligned_detail.png", plot_dir / "aligned_overview.png",
-                      plot_dir / "cadence.png", output / "cadence" / "stroke_events.csv",
-                      output / "analysis" / "muscle_metrics.csv"):
+    (sync_dir / "emg_rms_with_resistance.csv").unlink(missing_ok=True)
+    (sync_dir / "frontend_preview_10hz.csv").unlink(missing_ok=True)
+    (plot_dir / "synchronization_check.png").unlink(missing_ok=True)
+    for generated in (
+        plot_dir / "synchronized_signals_first_30s.png",
+        plot_dir / "synchronized_signals_overview.png",
+        plot_dir / "pedaling_cadence.png",
+        output / "pedaling_cadence" / "pedal_stroke_events.csv",
+        output / "muscle_analysis" / "muscle_activation_metrics.csv",
+    ):
         generated.unlink(missing_ok=True)
-    emg_csv = emg_dir / "raw.csv"
-    bandpass_csv = emg_dir / "bandpass.csv"
-    rms_csv = emg_dir / "rms.csv"
+    emg_csv = emg_dir / "emg_raw.csv"
+    bandpass_csv = emg_dir / "emg_bandpass_20_450hz.csv"
+    rms_csv = emg_dir / "emg_rms_100ms.csv"
     summary, plots = normalize_emg_csv(exported, emg_csv, metadata)
-    plot_channels(plots, metadata, plot_dir / "raw_channels.png", "Raw EMG (V; min/max per 300 samples)")
+    plot_channels(plots, metadata, plot_dir / "emg_raw_overview.png", "Raw EMG (V; min/max per 300 samples)")
     rate_hz = metadata["channels"][0]["sampling_rate_hz"]
     processing = filter_emg_csv(emg_csv, bandpass_csv, rms_csv, rate_hz)
     plot_csv_channels(
-        bandpass_csv, metadata, plot_dir / "bandpass_channels.png",
+        bandpass_csv, metadata, plot_dir / "emg_bandpass_20_450hz_overview.png",
         "Band-pass EMG (20-450 Hz, zero phase; V; min/max per 300 samples)",
     )
     plot_csv_channels(
-        rms_csv, metadata, plot_dir / "rms_channels.png",
+        rms_csv, metadata, plot_dir / "emg_rms_100ms_overview.png",
         "EMG RMS (100 ms centered window; V; min/max per 300 samples)",
     )
     metadata.update(summary)
     metadata["source_hpf"] = str(hpf)
     metadata["source_resistance_csv"] = str(resistance)
-    metadata["file_utility_csv"] = str(exported)
+    metadata["source_emg_csv"] = str(exported)
     metadata["processing"] = processing
     metadata["normalized_emg_csv"] = str(emg_csv)
     metadata["bandpass_emg_csv"] = str(bandpass_csv)
@@ -266,7 +244,7 @@ def process_recording(
             alignment = estimate_offset(rms_csv, resistance)
         except ValueError as exc:
             metadata["synchronization"] = {"status": "failed", "reason": str(exc)}
-            (output / "metadata.json").write_text(
+            (output / "recording_metadata.json").write_text(
                 json.dumps(metadata, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
             )
             raise
@@ -276,19 +254,19 @@ def process_recording(
         synchronization = sync_to_resistance(
             rms_csv,
             resistance,
-            sync_dir / "rms_resistance.csv",
+            sync_dir / "emg_rms_with_resistance.csv",
             alignment["emg_to_resistance_offset_s"],
         )
         plot_alignment_check(
             rms_csv,
             resistance,
             alignment["emg_to_resistance_offset_s"],
-            plot_dir / "alignment_check.png",
+            plot_dir / "synchronization_check.png",
             alignment["alignment_source"],
         )
         metadata["synchronization"] = {**alignment, **synchronization}
-        metadata["cadence"] = analyze_aligned_csv(sync_dir / "rms_resistance.csv", output)
-    (output / "metadata.json").write_text(
+        metadata["cadence"] = analyze_aligned_csv(sync_dir / "emg_rms_with_resistance.csv", output)
+    (output / "recording_metadata.json").write_text(
         json.dumps(metadata, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
     )
     return metadata
@@ -597,9 +575,7 @@ def plot_alignment_check(emg_csv: Path,resistance_csv: Path,offset_s: float,dest
     first = max(emg["time_s"].iloc[0] + offset_s, resistance["Timestamp (s)"].iloc[0])
     last = first + 12
     figure, axes = plt.subplots(2, 1, figsize=(14, 7), sharex=True)
-    for axis, side, emg_name, resistance_name in zip(
-        axes, ("Right", "Left"), EMG_CHANNELS, RESISTANCE_CHANNELS
-    ):
+    for axis, side, emg_name, resistance_name in zip( axes, ("Right", "Left"), EMG_CHANNELS, RESISTANCE_CHANNELS):
         emg_slice = emg.loc[(emg["time_s"] + offset_s).between(first, last), ["time_s", emg_name]].copy()
         resistance_slice = resistance.loc[resistance["Timestamp (s)"].between(first, last),["Timestamp (s)", resistance_name],].copy()
         emg_slice["bin"] = np.floor((emg_slice["time_s"] + offset_s - first) * 10).astype(int)
@@ -734,9 +710,7 @@ def plot_cadence(events: pd.DataFrame, destination: Path) -> None:
     figure, axis = plt.subplots(figsize=(16, 5))
     for side, color in (("Left", "#176a8a"), ("Right", "#bd6b1b")):
         own = events.loc[events["side"] == side].copy()
-        own["smoothed_spm"] = own["strokes_per_min"].rolling(
-            7, center=True, min_periods=3
-        ).median()
+        own["smoothed_spm"] = own["strokes_per_min"].rolling(7, center=True, min_periods=3).median()
         axis.plot(
             own["time_s"] - origin,
             own["smoothed_spm"],
@@ -759,22 +733,22 @@ def analyze_aligned_csv(synced_csv: Path, output_dir: Path) -> dict:
     columns = ["time_s", LEFT_EMG, RIGHT_EMG, *CRANK.values()]
     full = pd.read_csv(synced_csv)
     frame = full[columns]
-    plots = output_dir / "plots"
-    plot_aligned_signals(frame, plots / "aligned_detail.png", 30)
-    plot_aligned_signals(frame, plots / "aligned_overview.png", None)
+    plots = output_dir / "figures"
+    plot_aligned_signals(frame, plots / "synchronized_signals_first_30s.png", 30)
+    plot_aligned_signals(frame, plots / "synchronized_signals_overview.png", None)
     events, summary = detect_cadence(frame)
-    cadence_dir = output_dir / "cadence"
+    cadence_dir = output_dir / "pedaling_cadence"
     cadence_dir.mkdir(parents=True, exist_ok=True)
-    events.to_csv(cadence_dir / "stroke_events.csv", index=False)
-    plot_cadence(events, plots / "cadence.png")
-    analysis_dir = output_dir / "analysis"
+    events.to_csv(cadence_dir / "pedal_stroke_events.csv", index=False)
+    plot_cadence(events, plots / "pedaling_cadence.png")
+    analysis_dir = output_dir / "muscle_analysis"
     analysis_dir.mkdir(parents=True, exist_ok=True)
     muscle_channels = [name for name in full if ": EMG " in name]
     cycle_metrics(full, events, muscle_channels).to_csv(
-        analysis_dir / "muscle_metrics.csv", index=False
+        analysis_dir / "muscle_activation_metrics.csv", index=False
     )
     preview = full.drop(columns="Angle")
     bins = np.floor((preview["time_s"] - preview["time_s"].iloc[0]) * 10).astype(int)
     preview = preview.groupby(bins).median(numeric_only=True)
-    preview.to_csv(output_dir / "sync" / "preview_10hz.csv", index=False)
+    preview.to_csv(output_dir / "synchronized_data" / "frontend_preview_10hz.csv", index=False)
     return summary

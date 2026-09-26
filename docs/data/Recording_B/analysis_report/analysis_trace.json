@@ -1,0 +1,13 @@
+{
+  "generated_at": "2026-09-27T00:42:25+08:00",
+  "prompt_version": "cycling-emg-report-v2",
+  "input_sha256": "33a9317b1d6a48739b6d6aec2d48e9a89a636600ff74d76fb4ffd4640c5dde24",
+  "data_scope": "summary",
+  "report_template": "rider",
+  "provider": "none",
+  "model": null,
+  "endpoint": null,
+  "llm_status": "disabled",
+  "llm_error": null,
+  "api_key_recorded": false
+}
