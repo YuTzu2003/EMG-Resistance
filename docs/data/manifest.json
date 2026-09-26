@@ -1,0 +1,12 @@
+{
+  "recordings": [
+    {
+      "id": "Recording_A",
+      "label": "Recording A"
+    },
+    {
+      "id": "Recording_B",
+      "label": "Recording B"
+    }
+  ]
+}
