@@ -18,6 +18,7 @@ wheels/
 
 # Local data and proprietary acquisition files
 *.csv
+!docs/data/**/*.csv
 *.xlsx
 *.zip
 *.hpf
@@ -28,10 +29,12 @@ wheels/
 
 # Generated analysis output
 output/
+practice/
 
 # Local environment and operating-system files
 .env
 .env.*
 !.env.example
+.hallmark/
 .DS_Store
 Thumbs.db
