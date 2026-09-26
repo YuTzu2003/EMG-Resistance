@@ -1,10 +1,7 @@
-"""Export the compact, non-proprietary analysis views used by the static site."""
-
 import argparse
 import json
 import shutil
 from pathlib import Path
-
 
 RECORDINGS = ("Recording_A", "Recording_B")
 FILES = (
@@ -12,7 +9,11 @@ FILES = (
     ("cadence/stroke_events.csv", "stroke_events.csv"),
     ("analysis/muscle_metrics.csv", "muscle_metrics.csv"),
 )
-
+REPORT_FILES = (
+    ("report/analysis_summary.json", "analysis_summary.json"),
+    ("report/report.md", "report.md"),
+    ("report/trace.json", "trace.json"),
+)
 
 def _public_metadata(source: Path) -> dict:
     metadata = json.loads(source.read_text(encoding="utf-8"))
@@ -24,30 +25,45 @@ def _public_metadata(source: Path) -> dict:
         "cadence": metadata["cadence"],
     }
 
-
-def export_static_data(output_root: Path, site_data_root: Path) -> None:
-    """Copy only compact visualization data; never publish HPF or full-resolution EMG."""
+def export_static_data(output_root: Path,site_data_root: Path,recordings: tuple[str, ...] | None = None,) -> None:
+    if recordings is None:
+        recordings = tuple(
+            recording for recording in RECORDINGS
+            if all((output_root / recording / relative).is_file() for relative, _ in FILES) and (output_root / recording / "metadata.json").is_file())
+    if not recordings:
+        raise FileNotFoundError(f"No complete analysis output found under {output_root}")
+    
     manifest = {"recordings": []}
-    for recording in RECORDINGS:
+    for recording in recordings:
         source = output_root / recording
         destination = site_data_root / recording
         required = [source / relative for relative, _ in FILES] + [source / "metadata.json"]
         missing = [str(path) for path in required if not path.is_file()]
+
         if missing:
             raise FileNotFoundError(f"Missing analysis output for {recording}: {', '.join(missing)}")
+        
         destination.mkdir(parents=True, exist_ok=True)
         for relative, name in FILES:
             shutil.copyfile(source / relative, destination / name)
-        metadata = _public_metadata(source / "metadata.json")
-        (destination / "metadata.json").write_text(
-            json.dumps(metadata, ensure_ascii=False, indent=2), encoding="utf-8"
-        )
-        manifest["recordings"].append({"id": recording, "label": recording.replace("_", " ")})
-    site_data_root.mkdir(parents=True, exist_ok=True)
-    (site_data_root / "manifest.json").write_text(
-        json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8"
-    )
 
+        metadata = _public_metadata(source / "metadata.json")
+        (destination/"metadata.json").write_text(json.dumps(metadata, ensure_ascii=False, indent=2), encoding="utf-8")
+        report_paths = [source / relative for relative, _ in REPORT_FILES]
+        report_available = all(path.is_file() for path in report_paths)
+        
+        if any(path.is_file() for path in report_paths) and not report_available:
+            raise FileNotFoundError(f"Incomplete report output for {recording}: {', '.join(map(str, report_paths))}")
+        if report_available:
+            for relative, name in REPORT_FILES:
+                shutil.copyfile(source / relative, destination / name)
+        manifest["recordings"].append({
+            "id": recording,
+            "label": recording.replace("_", " "),
+            "report_available": report_available,
+        })
+    site_data_root.mkdir(parents=True, exist_ok=True)
+    (site_data_root / "manifest.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Export compact analysis data for docs/ GitHub Pages")
@@ -57,7 +73,6 @@ def main() -> int:
     export_static_data(args.output_root, args.site_data_root)
     print(f"Exported static-site data to {args.site_data_root}")
     return 0
-
 
 if __name__ == "__main__":
     raise SystemExit(main())

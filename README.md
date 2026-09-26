@@ -25,9 +25,9 @@ Place local recordings under `practice/Recording_A` or `practice/Recording_B`,
 then run:
 
 ```powershell
-uv run python -m emg_pipeline Recording_A
-uv run python -m emg_pipeline Recording_B
-uv run python -m emg_pipeline.site_export
+uv run python main.py run Recording_A
+uv run python main.py run Recording_B
+uv run python main.py verify Recording_A
 ```
 
 The `.hpf` export requires Delsys File Utility on Windows. If it is not in a
@@ -47,6 +47,9 @@ The workflow in `.github/workflows/pages.yml` deploys `docs/` automatically
 when changes reach `main`. In the repository settings, enable **Pages** with
 **GitHub Actions** as the source. The generated Pages URL is then shown in the
 workflow deployment and repository Pages settings.
+
+For local preview, open `docs/index.html` with the VS Code **Live Server**
+extension. No project-specific web server is required.
 
 ## Validation
 

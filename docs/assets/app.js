@@ -8,7 +8,11 @@ const MUSCLES = [
   ["R SOLEUS: EMG 14", "右比目魚肌"], ["L SOLEUS: EMG 16", "左比目魚肌"],
 ];
 
-const state = { recording: null, preview: [], cadence: [], metrics: [], metadata: null, start: 0, window: 30, syncing: false, activeView: "assessment" };
+const state = {
+  recording: null, preview: [], cadence: [], metrics: [], metadata: null,
+  analysis: null, trace: null, reportMarkdown: null, reportAvailability: new Map(),
+  start: 0, window: 30, syncing: false, activeView: "assessment",
+};
 const $ = (selector) => document.querySelector(selector);
 const css = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 const colors = Array.from({ length: MUSCLES.length }, (_, index) => css(`--color-series-${index + 1}`));
@@ -180,6 +184,54 @@ function renderJointAnalysis() {
   $("#joint-analysis").textContent = `整段資料中，左側 EMG 彙整包絡與左側阻力的零位移相關為 r = ${leftText}（${correlationText(leftCorrelation)}）；右側為 r = ${rightText}（${correlationText(rightCorrelation)}）。這個數值只描述兩條訊號在相同時間點的共同升降，不代表 EMG 直接等於發力或阻力；請以同步折線圖查看特定時間段的峰值與時序。`;
 }
 
+function renderGeneratedReport() {
+  const host = $("#generated-report-body");
+  const source = $("#generated-report-source");
+  if (!state.reportMarkdown || !state.analysis || !state.trace) {
+    source.textContent = "這筆紀錄尚未匯出分析報告。";
+    const message = document.createElement("p");
+    message.textContent = "請先執行 python main.py report，或用 python main.py run 重新分析。";
+    host.replaceChildren(message);
+    return;
+  }
+
+  const generatedAt = new Date(state.trace.generated_at).toLocaleString("zh-TW");
+  const model = state.trace.provider === "none"
+    ? "純 Python"
+    : `${state.trace.provider} / ${state.trace.model}`;
+  source.textContent = `${generatedAt} · ${model} · ${state.trace.data_scope} · ${state.trace.llm_status}`;
+
+  const fragment = document.createDocumentFragment();
+  let list = null;
+  state.reportMarkdown.split(/\r?\n/).forEach((rawLine) => {
+    const line = rawLine.trim();
+    if (!line) { list = null; return; }
+    const heading = line.match(/^(#{1,3})\s+(.+)$/);
+    if (heading) {
+      list = null;
+      const element = document.createElement(heading[1].length === 1 ? "h3" : "h4");
+      element.textContent = heading[2];
+      fragment.append(element);
+      return;
+    }
+    if (line.startsWith("- ")) {
+      if (!list) {
+        list = document.createElement("ul");
+        fragment.append(list);
+      }
+      const item = document.createElement("li");
+      item.textContent = line.slice(2);
+      list.append(item);
+      return;
+    }
+    list = null;
+    const paragraph = document.createElement("p");
+    paragraph.textContent = line;
+    fragment.append(paragraph);
+  });
+  host.replaceChildren(fragment);
+}
+
 function renderReport() {
   const ordered = [...state.metrics].sort((a, b) => a.cycle_consistency - b.cycle_consistency);
   const primary = ordered[0];
@@ -264,16 +316,23 @@ function bindChartRange(id) {
 async function loadRecording(recording) {
   state.recording = recording;
   const root = `data/${recording}`;
-  const [preview, cadence, metrics, metadata] = await Promise.all([
+  const hasReport = state.reportAvailability.get(recording) === true;
+  const [preview, cadence, metrics, metadata, analysis, trace, reportMarkdown] = await Promise.all([
     fetchText(`${root}/preview_10hz.csv`).then(parseCsv),
     fetchText(`${root}/stroke_events.csv`).then(parseCsv),
     fetchText(`${root}/muscle_metrics.csv`).then(parseCsv),
     fetchJson(`${root}/metadata.json`),
+    hasReport ? fetchJson(`${root}/analysis_summary.json`) : Promise.resolve(null),
+    hasReport ? fetchJson(`${root}/trace.json`) : Promise.resolve(null),
+    hasReport ? fetchText(`${root}/report.md`) : Promise.resolve(null),
   ]);
   state.preview = preview;
   state.cadence = cadence;
   state.metrics = metrics;
   state.metadata = metadata;
+  state.analysis = analysis;
+  state.trace = trace;
+  state.reportMarkdown = reportMarkdown;
   state.duration = Math.floor(preview.at(-1).time_s - preview[0].time_s);
   state.start = 0;
   state.window = Number($("#window-select").value);
@@ -282,6 +341,7 @@ async function loadRecording(recording) {
   $("#time-value").textContent = timeText(0);
   renderSummary();
   renderReport();
+  renderGeneratedReport();
   renderJointAnalysis();
   await Promise.all([makeEmgCharts(), makeResistanceChart(), makeCadenceChart(), makeSyncCharts()]);
   [...document.querySelectorAll("[data-muscle-chart]")].map((element) => element.id)
@@ -292,6 +352,7 @@ async function loadRecording(recording) {
 
 async function boot() {
   const manifest = await fetchJson("data/manifest.json");
+  state.reportAvailability = new Map(manifest.recordings.map(({ id, report_available }) => [id, report_available === true]));
   const selector = $("#recording-select");
   selector.replaceChildren(...manifest.recordings.map(({ id, label }) => new Option(label, id)));
   selector.addEventListener("change", () => loadRecording(selector.value));
@@ -320,9 +381,10 @@ async function boot() {
 boot().catch((error) => {
   const message = `載入資料失敗：${error.message}。請確認 GitHub Pages 已部署 docs/data，或以本機 HTTP 伺服器開啟，而非直接雙擊 index.html。`;
   $("#report-headline").textContent = message;
-  ["#report-primary", "#report-context", "#report-asymmetry", "#report-variation", "#report-limit", "#summary-text", "#joint-analysis"].forEach((selector) => {
+  ["#report-primary", "#report-context", "#report-asymmetry", "#report-variation", "#report-limit", "#summary-text", "#joint-analysis", "#generated-report-source"].forEach((selector) => {
     const target = $(selector);
     if (target) target.textContent = message;
   });
+  $("#generated-report-body").replaceChildren(Object.assign(document.createElement("p"), { textContent: message }));
   console.error(error);
 });
