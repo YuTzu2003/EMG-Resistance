@@ -7,17 +7,17 @@
   <title>EMG × Resistance｜騎乘分析</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="tokens.css">
-  <link rel="stylesheet" href="assets/site.css">
-  <script src="https://cdn.plot.ly/plotly-2.35.2.min.js" defer></script>
-  <script src="assets/app.js" defer></script>
+  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;600;700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="tokens.css?v=20260927b">
+  <link rel="stylesheet" href="assets/site.css?v=20260927b">
+  <script src="assets/vendor/plotly-4.1.1.min.js?v=20260927" defer></script>
+  <script src="assets/app.js?v=20260927b" defer></script>
 </head>
 <body>
   <header class="site-header">
     <a class="wordmark" href="#top" aria-label="回到頁面頂端">EMG × Resistance</a>
     <button class="command-button" type="button" id="command-button" aria-haspopup="dialog" aria-controls="command-palette">
-      區塊導覽 <kbd>Ctrl K</kbd>
+      導覽 <kbd>Ctrl K</kbd>
     </button>
   </header>
 
@@ -46,59 +46,50 @@
     </nav>
 
     <div id="view-assessment" class="view-panel" role="tabpanel" data-view-panel="assessment">
-    <section id="report" class="report-section" aria-labelledby="report-title">
-      <div class="report-heading">
+    <article id="report" class="report-document" aria-labelledby="report-title">
+      <header class="report-heading">
         <div>
-          <h2 id="report-title">本次騎乘評估</h2>
-          <p>依據逐圈 EMG 活化穩定度、左右相對活化與阻力節律，找出這位受試者優先可回看的踩踏線索。</p>
+          <p id="report-recording" class="report-recording">正在讀取紀錄</p>
+          <h1 id="report-title">個人騎乘肌電分析</h1>
         </div>
-        <button id="print-report" class="print-button" type="button">列印／另存 PDF</button>
-      </div>
-      <div class="report-lead">
-        <p id="report-headline">正在讀取報告…</p>
-      </div>
-      <div class="report-grid">
-        <section aria-labelledby="primary-title">
-          <h3 id="primary-title">優先修正線索</h3>
-          <p id="report-primary">—</p>
-        </section>
-        <section aria-labelledby="context-title">
-          <h3 id="context-title">踩踏條件</h3>
-          <p id="report-context">—</p>
-        </section>
-        <section aria-labelledby="asymmetry-title">
-          <h3 id="asymmetry-title">左右活化策略</h3>
-          <p id="report-asymmetry">—</p>
-        </section>
-        <section aria-labelledby="variation-title">
-          <h3 id="variation-title">負荷反應</h3>
-          <p id="report-variation">—</p>
-        </section>
-        <section aria-labelledby="action-title">
-          <h3 id="action-title">下一次怎麼回看</h3>
+        <button id="print-report" class="print-button" type="button">列印報告</button>
+      </header>
+
+      <section class="report-opening" aria-labelledby="report-headline">
+        <h2 id="report-headline">正在讀取程式分析…</h2>
+        <p id="report-overview">正在整理這位受測者的活化穩定度、左右相對活化與阻力節律。</p>
+      </section>
+
+      <section class="analysis-block" aria-labelledby="program-analysis-title">
+        <header class="analysis-block-heading">
+          <h2 id="program-analysis-title">程式計算結果</h2>
+          <p>數值與判讀均由目前紀錄計算，不由前端指定肌肉或固定排名。</p>
+        </header>
+        <ol id="program-findings" class="finding-ledger" aria-live="polite"></ol>
+        <div class="next-checks">
+          <h3>下一次回看重點</h3>
           <ol id="report-actions" class="report-actions"></ol>
-        </section>
-      </div>
-      <p id="report-limit" class="report-limit">—</p>
-      <article class="generated-report" aria-labelledby="generated-report-title">
-        <div class="generated-report-heading">
-          <div>
-            <h3 id="generated-report-title">分析流程產生的完整報告</h3>
-            <p id="generated-report-source">正在讀取報告來源…</p>
-          </div>
         </div>
-        <div id="generated-report-body" class="generated-report-body" aria-live="polite">
-          <p>正在讀取完整報告…</p>
+        <p id="report-limit" class="report-limit">正在讀取分析限制…</p>
+      </section>
+
+      <section class="analysis-block analysis-block--llm" aria-labelledby="llm-analysis-title">
+        <header class="analysis-block-heading">
+          <h2 id="llm-analysis-title">LLM 文字解讀</h2>
+          <p id="llm-analysis-status">正在確認是否已產生</p>
+        </header>
+        <div id="llm-analysis-body" class="llm-analysis-body" aria-live="polite">
+          <p>正在讀取個人化文字解讀…</p>
         </div>
-      </article>
-    </section>
+      </section>
+    </article>
     </div>
 
     <div id="view-emg" class="view-panel" role="tabpanel" data-view-panel="emg" hidden>
     <section id="emg" class="workbench-section" aria-labelledby="emg-title">
       <div class="section-heading">
         <div>
-          <h2 id="emg-title">14 條肌電活化曲線</h2>
+          <h2 id="emg-title">全部肌電活化曲線</h2>
         </div>
         <p>每條肌肉各有一張 RMS 圖與獨立縱軸。拖曳任一張圖或移動滑桿，都能讓全部圖表查看同一段時間。</p>
       </div>
@@ -109,12 +100,12 @@
         </div>
         <ol id="focus-list" class="focus-list" aria-label="週期一致度最低的三條肌肉"></ol>
       </article>
-      <div id="emg-charts" class="muscle-chart-list" aria-label="14 條獨立的肌肉 RMS 活化曲線"></div>
+      <div id="emg-charts" class="muscle-chart-list" aria-label="各肌肉獨立 RMS 活化曲線"></div>
     </section>
     </div>
 
     <div id="view-load" class="view-panel" role="tabpanel" data-view-panel="load" hidden>
-    <section id="resistance" class="workbench-section workbench-section--dark" aria-labelledby="resistance-title">
+    <section id="resistance" class="workbench-section" aria-labelledby="resistance-title">
       <div class="section-heading">
         <div>
           <h2 id="resistance-title">左右阻力與踩踏節律</h2>
@@ -150,7 +141,7 @@
     <form method="dialog" class="command-dialog">
       <div class="command-title-row"><h2 id="command-title">前往區塊</h2><button aria-label="關閉">Esc</button></div>
       <button class="command-view" type="button" data-view="assessment">騎乘評估</button>
-      <button class="command-view" type="button" data-view="emg">14 條肌電曲線</button>
+      <button class="command-view" type="button" data-view="emg">肌電曲線</button>
       <button class="command-view" type="button" data-view="load">阻力與同步</button>
     </form>
   </dialog>

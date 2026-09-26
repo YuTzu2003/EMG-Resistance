@@ -26,47 +26,58 @@ def _run_sources(args: argparse.Namespace) -> tuple[Path, Path, Path | None, str
         recording = args.recording_path.expanduser().resolve()
         hpf = recording / "EMG" / "EMG_Raw.hpf"
         resistance = recording / "Resistance" / "Resistance.csv"
-        exported_csv = hpf.with_suffix(".csv") if args.use_exported_csv else None
-        recording_name = args.recording_name or recording.name
+        sibling_csv = hpf.with_suffix(".csv")
+        exported_csv = sibling_csv if sibling_csv.is_file() else None
+        recording_id = recording.name
     else:
         if args.hpf_file is None or args.resistance_file is None:
             raise ValueError(
-                "Direct-file mode requires both --hpf-file and --resistance-file"
+                "Direct-file mode requires --hpf-file and --resistance-file"
             )
         hpf = args.hpf_file.expanduser().resolve()
         resistance = args.resistance_file.expanduser().resolve()
-        exported_csv = args.emg_csv.expanduser().resolve() if args.emg_csv else None
-        if args.use_exported_csv and exported_csv is None:
-            exported_csv = hpf.with_suffix(".csv")
-        recording_name = args.recording_name or hpf.stem
-    if not recording_name or recording_name in {".", ".."} or Path(recording_name).name != recording_name:
-        raise ValueError("--recording-name must be one folder name without path separators")
-    return hpf, resistance, exported_csv, recording_name
+        if args.emg_csv is not None:
+            exported_csv = args.emg_csv.expanduser().resolve()
+        else:
+            sibling_csv = hpf.with_suffix(".csv")
+            exported_csv = sibling_csv if sibling_csv.is_file() else None
+        recording_id = hpf.stem
+    return hpf, resistance, exported_csv, recording_id
+
+def _run_output(args: argparse.Namespace, recording_id: str) -> Path:
+    if args.output is not None:
+        return args.output.expanduser().resolve()
+    return (DEFAULT_OUTPUT_ROOT / recording_id).resolve()
 
 def _run(args: argparse.Namespace) -> int:
-    hpf, resistance, exported_csv, recording_name = _run_sources(args)
-    output_root = args.output_root.expanduser().resolve()
+    hpf, resistance, exported_csv, recording_id = _run_sources(args)
+    output = _run_output(args, recording_id)
     site_root = args.site_root.expanduser().resolve()
+    if output == site_root or site_root in output.parents:
+        raise ValueError(
+            "--output cannot be inside the frontend folder; use output/<recording> "
+            "and let the pipeline export compact files to docs/data"
+        )
     result = process_recording(
         hpf=hpf,
-        resistance=resistance,
-        output_root=output_root,
-        recording_name=recording_name,
-        file_utility=args.file_utility,
         exported_csv=exported_csv,
+        resistance=resistance,
+        output=output,
+        file_utility=args.file_utility,
         emg_event_s=args.emg_event_s,
         resistance_event_s=args.resistance_event_s,
         no_auto_sync=args.no_auto_sync,
     )
-    print(f"Processed {recording_name}: {result['sample_count']} EMG samples, {result['channel_count']} channels")
+    print(f"Processed {output.name}: {result['sample_count']} EMG samples, {result['channel_count']} channels")
+    print(f"Analysis output: {output}")
     if result["synchronization"].get("status") == "not_requested":
         print("Synchronization skipped; report and frontend export were not generated.")
         return 0
     print(f"Synchronized rows: {result['synchronization']['overlap_sample_count']}")
-    report = generate_report(output_root / recording_name, _config(args))
+    report = generate_report(output, _config(args))
     print(f"Report: {report['report']}")
     print(f"LLM: {report['trace_data']['llm_status']} ({report['trace_data']['provider']})")
-    _export_site(output_root, site_root, recording_name)
+    _export_site(output.parent, site_root, output.name)
     return 0
 
 def _report(args: argparse.Namespace) -> int:
@@ -84,25 +95,25 @@ def _verify(args: argparse.Namespace) -> int:
     recording_name = output.name
     site_data = args.site_root / "data" / recording_name
     expected = (
-        output / "metadata.json",
-        output / "sync" / "preview_10hz.csv",
-        output / "cadence" / "stroke_events.csv",
-        output / "analysis" / "muscle_metrics.csv",
-        output / "report" / "analysis_summary.json",
-        output / "report" / "report.md",
-        output / "report" / "trace.json",
-        site_data / "metadata.json",
-        site_data / "preview_10hz.csv",
-        site_data / "stroke_events.csv",
-        site_data / "muscle_metrics.csv",
-        site_data / "analysis_summary.json",
-        site_data / "report.md",
-        site_data / "trace.json",)
+        output / "recording_metadata.json",
+        output / "synchronized_data" / "frontend_preview_10hz.csv",
+        output / "pedaling_cadence" / "pedal_stroke_events.csv",
+        output / "muscle_analysis" / "muscle_activation_metrics.csv",
+        output / "analysis_report" / "analysis_summary.json",
+        output / "analysis_report" / "analysis_report.md",
+        output / "analysis_report" / "analysis_trace.json",
+        site_data / "recording_metadata.json",
+        site_data / "synchronized_data" / "frontend_preview_10hz.csv",
+        site_data / "pedaling_cadence" / "pedal_stroke_events.csv",
+        site_data / "muscle_analysis" / "muscle_activation_metrics.csv",
+        site_data / "analysis_report" / "analysis_summary.json",
+        site_data / "analysis_report" / "analysis_report.md",
+        site_data / "analysis_report" / "analysis_trace.json",)
     missing = [str(path) for path in expected if not path.is_file()]
     if missing:
         raise FileNotFoundError("Verification failed; missing files: " + ", ".join(missing))
-    summary = json.loads((output / "report" / "analysis_summary.json").read_text(encoding="utf-8"))
-    trace = json.loads((output / "report" / "trace.json").read_text(encoding="utf-8"))
+    summary = json.loads((output / "analysis_report" / "analysis_summary.json").read_text(encoding="utf-8"))
+    trace = json.loads((output / "analysis_report" / "analysis_trace.json").read_text(encoding="utf-8"))
     manifest = json.loads((args.site_root / "data" / "manifest.json").read_text(encoding="utf-8"))
     manifest_ids = {item["id"] for item in manifest.get("recordings", [])}
     checks = {
@@ -121,7 +132,11 @@ def _verify(args: argparse.Namespace) -> int:
     return 0
 
 def _add_storage_options(parser: argparse.ArgumentParser) -> None:
-    parser.add_argument("--output-root", type=Path, default=DEFAULT_OUTPUT_ROOT)
+    parser.add_argument(
+        "--output",
+        type=Path,
+        help="Exact folder for this analysis (default: output/<input name>)",
+    )
     parser.add_argument("--site-root", type=Path, default=DEFAULT_SITE_ROOT)
 
 def _add_site_option(parser: argparse.ArgumentParser) -> None:
@@ -147,18 +162,9 @@ def build_parser() -> argparse.ArgumentParser:
     run.add_argument(
         "--emg-csv",
         type=Path,
-        help="Existing Delsys File Utility CSV; omit to export the HPF automatically",
-    )
-    run.add_argument(
-        "--recording-name",
-        help="Output folder/report name (defaults to the input folder name or HPF filename)",
+        help="Existing official CSV; otherwise use a sibling CSV or export the HPF automatically",
     )
     run.add_argument("--file-utility", type=Path, help="Path to DelsysFileUtil.exe")
-    run.add_argument(
-        "--use-exported-csv",
-        action="store_true",
-        help="Folder mode: use EMG/EMG_Raw.csv; direct mode: use the CSV beside the HPF",
-    )
     run.add_argument("--emg-event-s", type=float)
     run.add_argument("--resistance-event-s", type=float)
     run.add_argument("--no-auto-sync", action="store_true", help="Only export and plot EMG")

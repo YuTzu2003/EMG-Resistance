@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-09-26T21:41:45+08:00",
-  "prompt_version": "cycling-emg-report-v1",
-  "input_sha256": "f0c50559843c9c12ad06f0384a450a10ff6bbca4a4123e1b29220e34cf75ce7d",
+  "generated_at": "2026-09-27T00:42:25+08:00",
+  "prompt_version": "cycling-emg-report-v2",
+  "input_sha256": "345db12bd7ffafc931d2cee39d1f6e1ed6a639d90aa7337bb0a2740bcc5329ef",
   "data_scope": "summary",
   "report_template": "rider",
   "provider": "none",
