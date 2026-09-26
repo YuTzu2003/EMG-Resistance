@@ -148,6 +148,13 @@ main {
 .view-panel[hidden] { display: none; }
 
 .report-document { max-width: 72rem; margin-inline: auto; }
+.technical-label {
+  margin: 0 0 var(--space-2xs);
+  color: var(--color-accent);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  letter-spacing: .12em;
+}
 .report-heading {
   display: grid;
   align-items: end;
@@ -194,6 +201,21 @@ main {
   letter-spacing: -.035em;
 }
 .report-opening p { margin: var(--space-md) 0 0; font-size: var(--text-md); }
+.report-stats {
+  display: grid;
+  gap: var(--space-xs);
+  margin-bottom: var(--space-xl);
+}
+.report-stat {
+  display: grid;
+  gap: var(--space-3xs);
+  padding: var(--space-md);
+  background: var(--color-surface);
+  border: var(--rule);
+  border-radius: var(--radius-md);
+}
+.report-stat span, .report-stat small { color: var(--color-muted); }
+.report-stat strong { color: var(--color-ink); font-family: var(--font-display); font-size: var(--text-lg); line-height: 1.2; overflow-wrap: anywhere; }
 .analysis-block { padding-block: var(--space-xl) var(--space-2xl); border-top: var(--rule); }
 .analysis-block-heading {
   display: grid;
@@ -287,6 +309,7 @@ main {
   border: var(--rule);
   border-radius: var(--radius-md);
 }
+.chart--compact { min-height: 14rem; }
 .muscle-chart-list, .sync-chart-grid { display: grid; gap: var(--space-lg); }
 .muscle-chart-card { min-width: 0; padding-top: var(--space-md); border-top: var(--rule); }
 .muscle-chart-heading {
@@ -300,6 +323,8 @@ main {
 .muscle-chart-heading p { margin: 0; color: var(--color-muted); font-family: var(--font-mono); font-size: var(--text-sm); font-variant-numeric: tabular-nums; }
 .muscle-chart { min-height: 13.75rem; }
 .joint-analysis { margin-top: var(--space-lg); padding-top: var(--space-lg); border-top: var(--rule); }
+.sync-chart-card { min-width: 0; }
+.sync-chart-card h3 { margin: 0 0 var(--space-xs); font-size: var(--text-md); }
 .sync-chart { min-height: 16rem; }
 
 .site-footer {
@@ -343,6 +368,7 @@ dialog::backdrop { background: var(--color-backdrop); }
   .report-heading { display: flex; justify-content: space-between; }
   .print-button { justify-self: auto; }
   .control-bar { grid-template-columns: minmax(10rem, .8fr) minmax(0, 1.5fr) minmax(10rem, .8fr); align-items: end; }
+  .report-stats { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .analysis-block-heading, .section-heading { grid-template-columns: minmax(0, 1fr) minmax(18rem, .8fr); align-items: start; }
   .emg-analysis { grid-template-columns: minmax(0, 1.2fr) minmax(18rem, .8fr); align-items: start; }
 }

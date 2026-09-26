@@ -225,6 +225,10 @@ function renderLlmNarrative() {
 function renderReport() {
   const assessment = state.analysis.subject_assessment;
   $("#report-recording").textContent = state.recording.replaceAll("_", " ");
+  $("#stat-left-cadence").textContent = cadence.left.median_strokes_per_min.toFixed(0);
+  $("#stat-right-cadence").textContent = cadence.right.median_strokes_per_min.toFixed(0);
+  $("#stat-focus-muscle").textContent = primaryName;
+  $("#stat-focus-score").textContent = `週期一致度 ${primary.cycle_consistency.toFixed(3)}`;
   $("#report-headline").textContent = assessment.headline;
   $("#report-overview").textContent = assessment.summary;
   $("#program-findings").replaceChildren(...assessment.findings.map((finding) => {
