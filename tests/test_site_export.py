@@ -32,4 +32,3 @@ class StaticSiteExportTests(unittest.TestCase):
             self.assertEqual(8.0, public_metadata["duration_s"])
             self.assertNotIn("source_hpf", public_metadata)
             self.assertFalse((site_data / "Recording_A" / "rms_resistance.csv").exists())
-

@@ -1,0 +1,232 @@
+{
+  "schema_version": "1.1",
+  "recording": "Participant_01_Test_A",
+  "calculated_by": "emg_pipeline Python analysis; LLM did not calculate these values",
+  "processing": {
+    "bandpass": {
+      "type": "Butterworth band-pass",
+      "cutoff_hz": [
+        20.0,
+        450.0
+      ],
+      "design_order": 4,
+      "application": "forward-backward SOS, zero phase; finite runs processed separately"
+    },
+    "rms": {
+      "definition": "sqrt(mean(bandpass_V ** 2))",
+      "window_s": 0.1,
+      "window_samples": 215,
+      "alignment": "centered; incomplete windows are NaN"
+    },
+    "notch_filter": "not applied",
+    "output_unit": "V"
+  },
+  "data_quality": {
+    "channel_count": 14,
+    "sample_count": 1288905,
+    "maximum_missing_percentage_points": 0.0076
+  },
+  "muscles": [
+    {
+      "channel": "L TIBIALIS ANTERIOR: EMG 11",
+      "label": "左脛前肌",
+      "side": "Left"
+    },
+    {
+      "channel": "R TIBIALIS ANTERIOR: EMG 10",
+      "label": "右脛前肌",
+      "side": "Right"
+    },
+    {
+      "channel": "R GASTROCNEMIUS: EMG 12",
+      "label": "右腓腸肌",
+      "side": "Right"
+    },
+    {
+      "channel": "R SOLEUS: EMG 14",
+      "label": "右比目魚肌",
+      "side": "Right"
+    },
+    {
+      "channel": "L BICEPS FEMORIS: EMG 2",
+      "label": "左股二頭肌",
+      "side": "Left"
+    },
+    {
+      "channel": "R BICEPS FEMORIS: EMG 1",
+      "label": "右股二頭肌",
+      "side": "Right"
+    },
+    {
+      "channel": "R RECTUS FEMORIS: EMG 5",
+      "label": "右股直肌",
+      "side": "Right"
+    },
+    {
+      "channel": "L GASTROCNEMIUS: EMG 13",
+      "label": "左腓腸肌",
+      "side": "Left"
+    },
+    {
+      "channel": "L SOLEUS: EMG 16",
+      "label": "左比目魚肌",
+      "side": "Left"
+    },
+    {
+      "channel": "L RECTUS FEMORIS: EMG 6",
+      "label": "左股直肌",
+      "side": "Left"
+    },
+    {
+      "channel": "R VASTUS MEDIALIS: EMG 3",
+      "label": "右股內側肌",
+      "side": "Right"
+    },
+    {
+      "channel": "L VASTUS MEDIALIS: EMG 4",
+      "label": "左股內側肌",
+      "side": "Left"
+    },
+    {
+      "channel": "L VASTUS LATERALIS: EMG 8",
+      "label": "左股外側肌",
+      "side": "Left"
+    },
+    {
+      "channel": "R VASTUS LATERALIS: EMG 7",
+      "label": "右股外側肌",
+      "side": "Right"
+    }
+  ],
+  "activation_consistency": {
+    "interpretation": "lower values mean less repeatable cycle shape; not lower muscle strength",
+    "priority_review": [
+      {
+        "muscle": "左脛前肌",
+        "channel": "L TIBIALIS ANTERIOR: EMG 11",
+        "cycle_consistency": 0.8058,
+        "usable_cycles": 591
+      },
+      {
+        "muscle": "右脛前肌",
+        "channel": "R TIBIALIS ANTERIOR: EMG 10",
+        "cycle_consistency": 0.9101,
+        "usable_cycles": 590
+      },
+      {
+        "muscle": "右腓腸肌",
+        "channel": "R GASTROCNEMIUS: EMG 12",
+        "cycle_consistency": 0.9202,
+        "usable_cycles": 590
+      }
+    ],
+    "all_muscle_average": 0.9321
+  },
+  "relative_bilateral_activation": {
+    "interpretation": "within-recording RMS asymmetry; not calibrated force asymmetry",
+    "largest_difference": {
+      "muscle": "股直肌",
+      "higher_side": "右",
+      "median_rms_difference_percent": 38.4
+    }
+  },
+  "activation_variation": {
+    "muscle": "右股外側肌",
+    "p90_to_median_ratio": 14.87
+  },
+  "cadence": {
+    "method": "positive signed-crank peaks; one same-side stroke per revolution",
+    "grid_step_s": 0.05,
+    "smoothing_s": 0.25,
+    "minimum_peak_separation_s": 0.6,
+    "prominence": "0.5 * interquartile range of smoothed signed crank",
+    "interval_rule": "keep intervals from 0.65 to 1.5 times that side's median; first interval unavailable",
+    "left": {
+      "detected_peak_count": 592,
+      "valid_interval_count": 591,
+      "median_strokes_per_min": 60.00000000000341,
+      "p10_strokes_per_min": 57.14285714285962,
+      "p90_strokes_per_min": 63.15789473684664
+    },
+    "right": {
+      "detected_peak_count": 591,
+      "valid_interval_count": 590,
+      "median_strokes_per_min": 60.00000000000341,
+      "p10_strokes_per_min": 57.14285714285962,
+      "p90_strokes_per_min": 63.15789473684664
+    }
+  },
+  "emg_resistance_relationship": {
+    "status": "available",
+    "method": "side-specific mean normalized RMS envelope versus same-side Resistance at zero lag",
+    "interpretation": "describes simultaneous signal co-variation; not calibrated force contribution or causation",
+    "left": {
+      "status": "available",
+      "zero_lag_pearson_r": 0.669,
+      "emg_channels_in_composite": 7
+    },
+    "right": {
+      "status": "available",
+      "zero_lag_pearson_r": 0.683,
+      "emg_channels_in_composite": 7
+    }
+  },
+  "synchronization": {
+    "status": "aligned",
+    "alignment_source": "estimated_signal_phase_left_reference",
+    "emg_to_resistance_offset_s": 71.25883482503704,
+    "left_correlation": 0.9109381699521003,
+    "right_correlation": -0.024514295361314085,
+    "limitation": "Signal phase alignment is not a hardware clock measurement; muscle-to-force delay may remain; right-side preferred phase differs from the left reference"
+  },
+  "limitations": [
+    "沒有 MVC 基準：RMS 振幅不能解讀為肌力或 %MVC。",
+    "訊號相位對齊不是共同硬體 trigger。",
+    "電極位置與皮膚阻抗可能影響左右振幅差異。",
+    "本報告是描述性分析，不是醫療診斷。"
+  ],
+  "subject_assessment": {
+    "subject_term": "受測者",
+    "headline": "左脛前肌是本次最需要回看的活化穩定度。",
+    "summary": "本次資料顯示左脛前肌的逐圈活化型態最不穩定。報告可指出相對活化不對稱、時序波動與負荷關係，但沒有 MVC 與校正扭力時，不能直接判定某條肌肉較弱或發力不足。",
+    "findings": [
+      {
+        "key": "activation_consistency",
+        "title": "逐圈活化穩定度",
+        "text": "左脛前肌的週期一致度最低（0.806），低於全部肌肉平均（0.932）；其次為右脛前肌、右腓腸肌。這表示同一踩踏週期中的活化形狀與峰值時機較常改變，應優先回看動作控制與量測品質。"
+      },
+      {
+        "key": "bilateral_activation",
+        "title": "左右相對活化",
+        "text": "股直肌的左右中位 RMS 差異最大，右側約高 38.4%。這是本次紀錄中的相對活化不對稱，不等同校正後的左右力量差。"
+      },
+      {
+        "key": "activation_variation",
+        "title": "活化波動",
+        "text": "右股外側肌的 P90／中位 RMS 比值最高（14.87 倍）。這代表少數時段的活化明顯高於其平常水準，可對照當時的阻力、踏頻與姿勢變化。"
+      },
+      {
+        "key": "cadence",
+        "title": "踩踏節律",
+        "text": "中位踩踏頻率為左 60.0、右 60.0 次／分鐘。請以兩側節律是否在同一負荷區段同步改變，判斷不一致是否與踩踏節奏相關。"
+      },
+      {
+        "key": "load_relationship",
+        "title": "肌電與阻力共同變化",
+        "text": "同時間點的 EMG 彙整包絡與阻力相關為左 r = 0.669、右 r = 0.683。此結果只描述共同升降，不能視為肌肉產生阻力的比例或因果關係。"
+      }
+    ],
+    "recommended_checks": [
+      "先固定阻力與踏頻，確認左脛前肌每圈的啟動與峰值時機是否變得集中。",
+      "同步回看右脛前肌、右腓腸肌，判斷不一致是單一部位，還是同一動作鏈一起改變。",
+      "比較股直肌左右曲線的峰值時機，確認右側偏高是否持續存在。",
+      "下次量測維持相同電極位置、皮膚處理、座高與足部固定方式，減少非動作因素造成的差異。",
+      "若要判定肌力、疲勞、受傷或真正左右出力差，需補做 MVC，並搭配校正過的扭力或功率量測。"
+    ],
+    "clinical_boundary": "這是單次騎乘的描述性動作分析，不是醫療診斷。肌電 RMS 代表量測到的電活動，不等同肌力、關節力矩或組織受傷。"
+  },
+  "llm_narrative": {
+    "status": "success",
+    "text": "## 受試者本次表現\n\n本次為單次騎乘的描述性動作分析，涵蓋十四條肌電通道與同側阻力訊號。整體而言，各肌肉在踩踏週期內的活化形狀重複性尚可，但並非所有部位都一致。左脛前肌的逐圈活化型態在本次紀錄中重複性最低，其次為右脛前肌與右腓腸肌；這三條肌肉在同一踩踏週期中的啟動時機與峰值位置較常出現偏移，值得優先回看。右股外側肌則呈現少數時段活化明顯高於其平常水準的波動，提示該肌肉在特定阻力或姿勢條件下被額外徵召。左右兩側的中位踩踏頻率在本段紀錄中大致一致，未見明顯的單側節律脫落。\n\n## 優先修正線索\n\n- **左脛前肌**是本次最需要回看的部位。其逐圈活化形狀與峰值時機的穩定度低於全部肌肉平均，建議先固定阻力與踏頻，觀察每圈啟動與峰值是否趨於集中，以排除電極位移、皮膚阻抗或足部固定鬆動等非動作因素。\n- **右脛前肌與右腓腸肌**的逐圈穩定度亦低於平均，且與左脛前肌同屬踝關節動作鏈。建議同步回看這三條肌肉，判斷不一致是單一部位現象，還是同一動作鏈在特定阻力區段一起改變。\n- **右股外側肌**的活化波動幅度最大，少數時段明顯高於其平常水準。可對照當時的阻力變化、踏頻與骨盆或膝部姿勢，確認該波動是否與特定負荷區段或姿勢調整相關。\n- 下次量測應維持相同電極位置、皮膚處理、座高與足部固定方式，減少非動作因素造成的振幅差異，使逐圈比較更具可比性。\n\n## 左右策略\n\n本次紀錄中，股直肌的左右中位 RMS 差異最大，右側偏高。這是本次量測內的相對活化不對稱，不等同校正後的左右出力差。可能的解讀方向包括：右側股直肌在該段負荷中被較多徵召、左側在相同阻力下採用了不同的股四頭肌內部分工（例如更多依賴股內側肌或股外側肌），或電極位置與皮膚阻抗造成的量測偏移。\n\n建議下次量測時：\n- 比較股直肌左右曲線的峰值時機，確認右側偏高是否持續存在，還是僅出現在特定阻力區段。\n- 同時觀察股內側肌與股外側肌的左右比值，判斷是整組股四頭肌的分配差異，還是單一肌肉的局部現象。\n- 若需判定真正的左右出力差，需補做 MVC 基準並搭配校正過的扭力或功率量測，僅憑本次 RMS 比值無法下此結論。\n\n## 阻力與節律\n\n同時間點的肌電彙整包絡與同側阻力呈現中等程度的共同升降，左右兩側皆為 available 狀態。此結果僅描述兩訊號在時間軸上的共變，不能視為某條肌肉產生阻力的比例，也不能推導因果關係。\n\n踩踏節律方面，左右中位頻率在本段紀錄中大致相同，且有效間隔數接近，未見單側明顯脫拍。然而，右股外側肌的活化波動提示：在特定阻力或節奏微調時段，該肌肉可能被額外徵召以穩定膝關節或調整骨盆。建議下次量測時以固定阻力區段（例如每三十秒遞增一檔）搭配固定踏頻，觀察各肌肉活化是否隨阻力階梯式改變，而非在連續變負荷中混雜節奏與姿勢因素。\n\n同步方面，本次 EMG 與阻力訊號的對齊為估算訊號相位，並非共同硬體觸發；右側偏好相位與左側參考存在差異，肌肉至力量的延遲可能仍殘留。因此，零時滯的共變描述應保守解讀，不宜直接對應為「肌肉在該瞬間產生該阻力」。\n\n## 限制\n\n- 本次紀錄沒有 MVC 基準，RMS 振幅不能解讀為肌力、關節力矩或百分比 MVC。\n- 訊號相位對齊是估算結果，不是共同硬體時鐘；肌肉電活動至關節力矩的延遲未校正。\n- 電極位置、皮膚阻抗與足部固定方式可能影響左右振幅差異，本次無法排除這些量測因素。\n- 本報告為單次騎乘的描述性動作分析，不是醫療診斷，不構成對受傷、疲勞或肌肉無力的判定。\n- 若需進一步判定肌力、左右出力差或組織狀態，需補做 MVC、校正扭力或功率量測，並由具資格的運動醫學或物理治療專業人員解讀。"
+  }
+}

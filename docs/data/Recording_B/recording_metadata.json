@@ -1,0 +1,79 @@
+{
+  "recording": "Recording_B",
+  "duration_s": 600.1105239626486,
+  "processing": {
+    "bandpass": {
+      "type": "Butterworth band-pass",
+      "cutoff_hz": [
+        20.0,
+        450.0
+      ],
+      "design_order": 4,
+      "application": "forward-backward SOS, zero phase; finite runs processed separately"
+    },
+    "rms": {
+      "definition": "sqrt(mean(bandpass_V ** 2))",
+      "window_s": 0.1,
+      "window_samples": 215,
+      "alignment": "centered; incomplete windows are NaN"
+    },
+    "notch_filter": "not applied",
+    "output_unit": "V"
+  },
+  "synchronization": {
+    "alignment_source": "estimated_signal_phase_bilateral",
+    "method": "bilateral Vastus Medialis RMS vs absolute crank correlation",
+    "assumption": "Both recording applications were started together, within five seconds",
+    "emg_envelope": "20-450 Hz band-pass then 100 ms RMS; 0.1 s bins, 0.5 s smoothing, 20 s trend removal",
+    "search_range_s": [
+      -5,
+      5
+    ],
+    "time_resolution_s": 0.1,
+    "resistance_start_minus_emg_start_s": 16.243056212668307,
+    "estimated_lag_s": 2.1,
+    "emg_to_resistance_offset_s": 18.34305621266831,
+    "left_correlation": 0.9327400415787638,
+    "right_correlation": 0.897252616918005,
+    "gap_to_next_cycle_peak": 0.038448937551896045,
+    "segment_lags_s": [
+      2.1,
+      2.1,
+      2.1
+    ],
+    "segment_correlation_at_selected_lag": [
+      0.926508664427324,
+      0.9332502318720726,
+      0.9084175430489216
+    ],
+    "limitation": "Signal phase alignment is not a hardware clock measurement; muscle-to-force delay may remain",
+    "status": "aligned",
+    "basis": "Resistance Timestamp (s)",
+    "interpolation": "linear RMS interpolation at Resistance timestamps; no extrapolation; missing windows remain blank",
+    "overlap_sample_count": 430529,
+    "time_start_s": 18.34422236250248,
+    "time_end_s": 618.4547463251511
+  },
+  "cadence": {
+    "method": "positive signed-crank peaks; one same-side stroke per revolution",
+    "grid_step_s": 0.05,
+    "smoothing_s": 0.25,
+    "minimum_peak_separation_s": 0.6,
+    "prominence": "0.5 * interquartile range of smoothed signed crank",
+    "interval_rule": "keep intervals from 0.65 to 1.5 times that side's median; first interval unavailable",
+    "left": {
+      "detected_peak_count": 603,
+      "valid_interval_count": 602,
+      "median_strokes_per_min": 60.0,
+      "p10_strokes_per_min": 57.14285714285652,
+      "p90_strokes_per_min": 63.15789473684286
+    },
+    "right": {
+      "detected_peak_count": 603,
+      "valid_interval_count": 602,
+      "median_strokes_per_min": 60.0,
+      "p10_strokes_per_min": 57.14285714285652,
+      "p90_strokes_per_min": 63.15789473684286
+    }
+  }
+}
