@@ -4,56 +4,51 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="description" content="EMG 與左右阻力的騎乘紀錄檢視頁面。">
-  <title>EMG × Resistance｜騎乘分析</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;600;700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="tokens.css?v=20260927b">
-  <link rel="stylesheet" href="assets/site.css?v=20260927b">
+  <title>EMG × Resistance｜分析</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB" crossorigin="anonymous">
+  <link href="https://cdn.jsdelivr.net/npm/element-plus@2.14.6/dist/index.css" rel="stylesheet">
+  <link rel="stylesheet" href="tokens.css?v=20260927o">
+  <link rel="stylesheet" href="assets/site.css?v=20260927p">
   <script src="assets/vendor/plotly-4.1.1.min.js?v=20260927" defer></script>
-  <script src="assets/app.js?v=20260927b" defer></script>
+  <script src="assets/app.js?v=20260927q" defer></script>
 </head>
 <body>
-  <header class="site-header">
-    <a class="wordmark" href="#top" aria-label="回到頁面頂端">EMG × Resistance</a>
-    <button class="command-button" type="button" id="command-button" aria-haspopup="dialog" aria-controls="command-palette">
-      導覽 <kbd>Ctrl K</kbd>
-    </button>
-  </header>
-
   <main id="top">
+    <div class="sticky-tools">
+    <div class="tool-nav">
+      <a class="wordmark" href="#top" aria-label="EMG 與阻力騎乘分析首頁">EMG × Resistance</a>
+      <nav class="view-tabs" role="tablist" aria-label="分析檢視">
+        <button class="view-tab is-active" type="button" role="tab" data-view="assessment" aria-controls="view-assessment" aria-selected="true">測試評估</button>
+        <button class="view-tab" type="button" role="tab" data-view="emg" aria-controls="view-emg" aria-selected="false">肌電細節</button>
+        <button class="view-tab" type="button" role="tab" data-view="load" aria-controls="view-load" aria-selected="false">阻力與同步</button>
+      </nav>
+    </div>
     <section class="control-bar" aria-label="紀錄與時間控制">
       <label>紀錄
-        <select id="recording-select" aria-label="選擇紀錄"></select>
+        <select id="recording-select" class="form-select" aria-label="選擇紀錄"></select>
       </label>
-      <label>視窗起點 <output id="time-value" for="time-slider"></output>
-        <input id="time-slider" type="range" min="0" max="600" value="0" step="1">
-      </label>
-      <label>顯示長度
-        <select id="window-select" aria-label="選擇顯示時間長度">
-          <option value="15">15 秒</option>
-          <option value="30" selected>30 秒</option>
-          <option value="60">60 秒</option>
-          <option value="120">120 秒</option>
-        </select>
-      </label>
+      <div id="interval-control" class="interval-control">
+        <div class="interval-control-heading">
+          <span>區間選擇</span>
+          <output id="interval-value" for="interval-start-slider interval-end-slider"></output>
+        </div>
+        <div id="interval-range" class="interval-range" style="--range-start: 0%; --range-end: 100%;">
+          <div class="interval-range-track" aria-hidden="true"><span class="interval-range-selection"></span></div>
+          <input id="interval-start-slider" class="interval-input" type="range" min="0" max="600" value="0" step="1" aria-label="區間起點">
+          <input id="interval-end-slider" class="interval-input" type="range" min="0" max="600" value="600" step="1" aria-label="區間終點">
+        </div>
+      </div>
     </section>
-
-    <nav class="view-tabs" role="tablist" aria-label="分析檢視">
-      <button class="view-tab is-active" type="button" role="tab" data-view="assessment" aria-controls="view-assessment" aria-selected="true">騎乘評估</button>
-      <button class="view-tab" type="button" role="tab" data-view="emg" aria-controls="view-emg" aria-selected="false">肌電細節</button>
-      <button class="view-tab" type="button" role="tab" data-view="load" aria-controls="view-load" aria-selected="false">阻力與同步</button>
-    </nav>
+    </div>
 
     <div id="view-assessment" class="view-panel" role="tabpanel" data-view-panel="assessment">
     <article id="report" class="report-document" aria-labelledby="report-title">
       <header class="report-heading">
         <div>
-          <p class="technical-label">SESSION ASSESSMENT</p>
           <p id="report-recording" class="report-recording">正在讀取紀錄</p>
-          <h1 id="report-title">個人騎乘肌電分析</h1>
+          <h1 id="report-title">個人肌電分析</h1>
         </div>
-        <button id="print-report" class="print-button" type="button">列印報告</button>
+        <button id="print-report" class="el-button el-button--primary print-button" type="button">列印報告</button>
       </header>
 
       <section class="report-opening" aria-labelledby="report-headline">
@@ -68,7 +63,7 @@
 
       <section class="analysis-block" aria-labelledby="program-analysis-title">
         <header class="analysis-block-heading">
-          <h2 id="program-analysis-title">程式計算結果</h2>
+          <h2 id="program-analysis-title">計算結果</h2>
           <p>數值與判讀均由目前紀錄計算，不由前端指定肌肉或固定排名。</p>
         </header>
         <ol id="program-findings" class="finding-ledger" aria-live="polite"></ol>
@@ -81,7 +76,7 @@
 
       <section class="analysis-block analysis-block--llm" aria-labelledby="llm-analysis-title">
         <header class="analysis-block-heading">
-          <h2 id="llm-analysis-title">LLM 文字解讀</h2>
+          <h2 id="llm-analysis-title">敘述建議</h2>
           <p id="llm-analysis-status">正在確認是否已產生</p>
         </header>
         <div id="llm-analysis-body" class="llm-analysis-body" aria-live="polite">
@@ -95,9 +90,9 @@
     <section id="emg" class="workbench-section" aria-labelledby="emg-title">
       <div class="section-heading">
         <div>
-          <h2 id="emg-title">全部肌電活化曲線</h2>
+          <h2 id="emg-title">肌電活化曲線</h2>
         </div>
-        <p>每條肌肉各有一張 RMS 圖與獨立縱軸。拖曳任一張圖或移動滑桿，都能讓全部圖表查看同一段時間。</p>
+        <p>每條肌肉有 RMS 圖表呈現，可拖曳任一張圖或移動滑桿，能讓全部圖表查看同一段時間</p>
       </div>
       <article class="emg-analysis" aria-labelledby="summary-title">
         <div>
@@ -116,7 +111,7 @@
         <div>
           <h2 id="resistance-title">左右阻力與踩踏節律</h2>
         </div>
-        <p>阻力值沿用原始 Resistance 檔單位。步頻以同側有號阻力正峰計算，一腳每圈一次；不是雙腳合計。</p>
+        <p>步頻以同側有號阻力正峰計算，一腳每圈一次，不是雙腳合計</p>
       </div>
       <div id="resistance-chart" class="chart chart--compact" aria-label="左右阻力曲線"></div>
       <div id="cadence-chart" class="chart chart--compact" aria-label="左右腳踩踏頻率"></div>
@@ -141,16 +136,5 @@
     </section>
     </div>
   </main>
-
-  <footer class="site-footer">EMG × Resistance · 靜態檢視頁 · 資料為 10 Hz 檢視版本；完整高解析資料不會上傳至 GitHub Pages。</footer>
-
-  <dialog id="command-palette" aria-labelledby="command-title">
-    <form method="dialog" class="command-dialog">
-      <div class="command-title-row"><h2 id="command-title">前往區塊</h2><button aria-label="關閉">Esc</button></div>
-      <button class="command-view" type="button" data-view="assessment">騎乘評估</button>
-      <button class="command-view" type="button" data-view="emg">肌電曲線</button>
-      <button class="command-view" type="button" data-view="load">阻力與同步</button>
-    </form>
-  </dialog>
 </body>
 </html>

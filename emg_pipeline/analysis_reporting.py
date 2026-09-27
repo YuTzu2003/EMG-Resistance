@@ -141,7 +141,7 @@ def _subject_assessment(summary: dict) -> dict:
     ])
     return {
         "subject_term": "受測者",
-        "headline": f"{primary['muscle']}是本次最需要回看的活化穩定度線索。",
+        "headline": f"{primary['muscle']}是本次最需要回看的活化穩定度。",
         "summary": (
             f"本次資料顯示{primary['muscle']}的逐圈活化型態最不穩定。"
             "報告可指出相對活化不對稱、時序波動與負荷關係，但沒有 MVC 與校正扭力時，"
