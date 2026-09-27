@@ -1,13 +1,13 @@
 {
-  "generated_at": "2026-09-27T00:42:25+08:00",
+  "generated_at": "2026-09-27T11:07:46+08:00",
   "prompt_version": "cycling-emg-report-v2",
-  "input_sha256": "345db12bd7ffafc931d2cee39d1f6e1ed6a639d90aa7337bb0a2740bcc5329ef",
+  "input_sha256": "6535159b5462385f1747503b79632dfa0748f6a6bb977830229c1330957a51d9",
   "data_scope": "summary",
   "report_template": "rider",
-  "provider": "none",
-  "model": null,
-  "endpoint": null,
-  "llm_status": "disabled",
+  "provider": "ollama",
+  "model": "qwen3.8:27b",
+  "endpoint": "http://120.113.70.220:11434/api/chat",
+  "llm_status": "success",
   "llm_error": null,
   "api_key_recorded": false
 }

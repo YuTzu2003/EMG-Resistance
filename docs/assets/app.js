@@ -1,11 +1,17 @@
 const state = {
   recording: null, preview: [], cadence: [], metrics: [], metadata: null,
   analysis: null, muscles: [], reportAvailability: new Map(),
-  start: 0, window: 30, syncing: false, activeView: "assessment",
+  start: 0, window: 600, syncing: false, activeView: "assessment",
 };
 const $ = (selector) => document.querySelector(selector);
 const css = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 let colors = [];
+const chartColors = Object.freeze({
+  leftResistance: "#2563eb",
+  rightResistance: "#e8590c",
+  leftEmg: "#00856a",
+  rightEmg: "#7c3aed",
+});
 
 function parseCsv(text) {
   const [header, ...lines] = text.trim().split(/\r?\n/).filter(Boolean);
@@ -36,25 +42,24 @@ function percentile(values, fraction) {
   return finite[index] || 1;
 }
 
-function rollingMedian(values, size = 7) {
-  const half = Math.floor(size / 2);
-  return values.map((_, index) => percentile(values.slice(Math.max(0, index - half), index + half + 1), 0.5));
-}
-
 function elapsed(row) { return row.time_s - state.preview[0].time_s; }
 function range() { return [state.start, Math.min(state.start + state.window, state.duration)]; }
 function labelFor(channel) { return state.muscles.find((item) => item.channel === channel)?.label || channel; }
-function timeText(seconds) { return `${seconds.toFixed(0)}–${Math.min(seconds + state.window, state.duration).toFixed(0)} 秒`; }
+function timeLabel(seconds) {
+  const wholeSeconds = Math.max(0, Math.floor(seconds));
+  return `${Math.floor(wholeSeconds / 60)}:${String(wholeSeconds % 60).padStart(2, "0")}`;
+}
 
 function baseLayout() {
   const foreground = css("--color-text");
   const rule = css("--color-rule");
   return {
-    paper_bgcolor: css("--color-transparent"), plot_bgcolor: css("--color-transparent"), font: { family: css("--font-body"), color: foreground },
+    paper_bgcolor: css("--color-surface-raised"), plot_bgcolor: css("--color-surface-raised"), font: { family: css("--font-body"), color: foreground },
     margin: { l: 58, r: 28, t: 22, b: 56 }, hovermode: "x unified", dragmode: "pan",
     xaxis: { title: "對齊後經過時間（秒）", range: range(), gridcolor: rule, zerolinecolor: rule },
     yaxis: { gridcolor: rule, zerolinecolor: rule },
     legend: { orientation: "h", y: -0.24, x: 0, font: { size: 11 }, groupclick: "toggleitem" },
+    hoverlabel: { bgcolor: css("--color-ink"), bordercolor: css("--color-ink"), font: { color: css("--color-accent-ink"), family: css("--font-body") } },
   };
 }
 
@@ -94,20 +99,23 @@ function makeEmgCharts() {
 
 function makeResistanceChart() {
   const x = state.preview.map(elapsed);
+  const leftColor = chartColors.leftResistance;
+  const rightColor = chartColors.rightResistance;
   const traces = [
-    ["crankLeft", "左側阻力", colors[5]], ["CrankRight", "右側阻力", colors[8]],
-  ].map(([channel, label, color]) => ({ x, y: state.preview.map((row) => row[channel]), name: label, type: "scattergl", mode: "lines", line: { color, width: 1.6 }, hovertemplate: `%{x:.2f} 秒<br>${label}：%{y:.2f}<extra></extra>` }));
+    ["crankLeft", "左側阻力", leftColor], ["CrankRight", "右側阻力", rightColor],
+  ].map(([channel, label, color]) => ({ x, y: state.preview.map((row) => row[channel]), name: label, type: "scatter", mode: "lines", line: { color, width: 2 }, hovertemplate: `%{x:.2f} 秒<br>${label}：%{y:.2f}<extra></extra>` }));
   const layout = { ...baseLayout(), yaxis: { ...baseLayout().yaxis, title: "Resistance 原始單位" }, height: 280 };
   return Plotly.react("resistance-chart", traces, layout, { responsive: true, displaylogo: false, scrollZoom: true });
 }
 
 function makeCadenceChart() {
   const origin = state.preview[0].time_s;
+  const leftColor = chartColors.leftResistance;
+  const rightColor = chartColors.rightResistance;
   const traces = ["Left", "Right"].map((side, index) => {
     const rows = state.cadence.filter((row) => row.side === side && Number.isFinite(row.strokes_per_min));
-    const smoothed = rollingMedian(rows.map((row) => row.strokes_per_min));
     const label = side === "Left" ? "左腳" : "右腳";
-    return { x: rows.map((row) => row.time_s - origin), y: smoothed, name: label, type: "scatter", mode: "lines", line: { color: colors[index ? 8 : 5], width: 2 }, hovertemplate: `%{x:.1f} 秒<br>${label}：%{y:.1f} 次/分<extra></extra>` };
+    return { x: rows.map((row) => row.time_s - origin), y: rows.map((row) => row.strokes_per_min), name: label, type: "scatter", mode: "lines", line: { color: index ? rightColor : leftColor, width: 2, shape: "spline", smoothing: 0.7 }, hovertemplate: `%{x:.1f} 秒<br>${label}：%{y:.1f} 次/分<extra></extra>` };
   });
   const layout = { ...baseLayout(), yaxis: { ...baseLayout().yaxis, title: "同側踩踏次數／分鐘" }, height: 250 };
   return Plotly.react("cadence-chart", traces, layout, { responsive: true, displaylogo: false, scrollZoom: true });
@@ -132,8 +140,8 @@ function makeSideSyncChart(side, chartId, emgColor, resistanceColor) {
     { y: meanNormalizedEnvelope(side), name: `${side === "L" ? "左" : "右"}側 EMG 彙整包絡`, color: emgColor, axis: "y" },
     { y: state.preview.map((row) => row[side === "L" ? "crankLeft" : "CrankRight"]), name: `${side === "L" ? "左" : "右"}側阻力`, color: resistanceColor, axis: "y2" },
   ].map(({ y, name, color, axis }) => ({
-    x, y, name, yaxis: axis, type: "scattergl", mode: "lines",
-    line: { color, width: axis === "y" ? 2 : 1.35 },
+    x, y, name, yaxis: axis, type: "scatter", mode: "lines",
+    line: { color, width: axis === "y" ? 2.2 : 1.8 },
     hovertemplate: `%{x:.2f} 秒<br>${name}：%{y:.2f}<extra></extra>`,
   }));
   const layout = {
@@ -146,8 +154,8 @@ function makeSideSyncChart(side, chartId, emgColor, resistanceColor) {
 
 function makeSyncCharts() {
   return Promise.all([
-    makeSideSyncChart("L", "sync-left-chart", colors[5], colors[11]),
-    makeSideSyncChart("R", "sync-right-chart", colors[8], colors[2]),
+    makeSideSyncChart("L", "sync-left-chart", chartColors.leftEmg, chartColors.leftResistance),
+    makeSideSyncChart("R", "sync-right-chart", chartColors.rightEmg, chartColors.rightResistance),
   ]);
 }
 
@@ -177,58 +185,112 @@ function renderJointAnalysis() {
   $("#joint-analysis").textContent = finding?.text || "本次資料不足，未產生肌電與阻力共同變化的程式判讀。";
 }
 
-function renderNarrativeText(host, text) {
+function appendInlineMarkdown(element, source) {
+  const pattern = /(\*\*|__)(.+?)\1|`([^`]+)`|\*([^*\n]+)\*|_([^_\n]+)_/g;
+  let cursor = 0;
+  for (const match of source.matchAll(pattern)) {
+    if (match.index > cursor) element.append(document.createTextNode(source.slice(cursor, match.index)));
+    const tag = match[1] ? "strong" : match[3] ? "code" : "em";
+    const inline = document.createElement(tag);
+    inline.textContent = match[2] || match[3] || match[4] || match[5];
+    element.append(inline);
+    cursor = match.index + match[0].length;
+  }
+  if (cursor < source.length) element.append(document.createTextNode(source.slice(cursor)));
+}
+
+function renderNarrativeMarkdown(host, markdown) {
   const fragment = document.createDocumentFragment();
   let list = null;
-  text.split(/\r?\n/).forEach((rawLine) => {
+  markdown.split(/\r?\n/).forEach((rawLine) => {
     const line = rawLine.trim();
     if (!line) { list = null; return; }
-    const heading = line.match(/^(#{2,4})\s+(.+)$/);
+    const heading = line.match(/^#{1,4}\s+(.+)$/);
     if (heading) {
       list = null;
       const element = document.createElement("h3");
-      element.textContent = heading[2];
+      appendInlineMarkdown(element, heading[1]);
       fragment.append(element);
       return;
     }
-    if (line.startsWith("- ")) {
-      if (!list) {
-        list = document.createElement("ul");
+    const bullet = line.match(/^[-*+]\s+(.+)$/);
+    const ordinal = line.match(/^\d+[.)]\s+(.+)$/);
+    if (bullet || ordinal) {
+      const type = ordinal ? "ol" : "ul";
+      if (!list || list.tagName.toLowerCase() !== type) {
+        list = document.createElement(type);
         fragment.append(list);
       }
       const item = document.createElement("li");
-      item.textContent = line.slice(2);
+      appendInlineMarkdown(item, (bullet || ordinal)[1]);
       list.append(item);
+      return;
+    }
+    if (line.startsWith("> ")) {
+      list = null;
+      const quote = document.createElement("blockquote");
+      appendInlineMarkdown(quote, line.slice(2));
+      fragment.append(quote);
       return;
     }
     list = null;
     const paragraph = document.createElement("p");
-    paragraph.textContent = line;
+    appendInlineMarkdown(paragraph, line);
     fragment.append(paragraph);
   });
   host.replaceChildren(fragment);
 }
 
+function computedNarrativeMarkdown() {
+  const assessment = state.analysis?.subject_assessment;
+  if (!assessment) return "### 程式重點整理\n\n尚未取得可供整理的分析結果。";
+  const highlights = (assessment.findings || []).slice(0, 3)
+    .map((finding) => `- **${finding.title}**：${finding.text}`)
+    .join("\n");
+  const boundary = assessment.clinical_boundary
+    ? `\n\n#### 判讀範圍\n> ${assessment.clinical_boundary}`
+    : "";
+  return `### 程式重點整理\n\n${assessment.summary}${highlights ? `\n\n#### 本次回看重點\n${highlights}` : ""}${boundary}`;
+}
+
 function renderLlmNarrative() {
-  const narrative = state.analysis.llm_narrative;
+  const narrative = state.analysis.llm_narrative || { status: "unavailable", text: null };
   const host = $("#llm-analysis-body");
-  $("#llm-analysis-status").textContent = narrative.status === "success" ? "已產生" : "未產生";
-  if (narrative.text) {
-    renderNarrativeText(host, narrative.text);
+  const statusText = {
+    success: "已產生個人化解讀",
+    disabled: "尚未啟用",
+    fallback: "未能產生",
+    unavailable: "目前無法使用",
+  };
+  const markdown = narrative.markdown || narrative.text;
+  if (markdown) {
+    $("#llm-analysis-status").textContent = statusText[narrative.status] || "已產生個人化解讀";
+    host.classList.remove("is-unavailable");
+    renderNarrativeMarkdown(host, markdown);
   } else {
-    const message = document.createElement("p");
-    message.textContent = "這筆紀錄目前只有程式計算結果；啟用 LLM 後重新產生報告，這裡才會顯示個人化文字解讀。";
-    host.replaceChildren(message);
+    $("#llm-analysis-status").textContent = narrative.status === "disabled"
+      ? "程式重點整理（LLM 未啟用）"
+      : "程式重點整理（尚無 LLM 解讀）";
+    host.classList.remove("is-unavailable");
+    renderNarrativeMarkdown(host, computedNarrativeMarkdown());
   }
 }
 
 function renderReport() {
   const assessment = state.analysis.subject_assessment;
+  const cadence = state.analysis.cadence;
+  const primary = state.analysis.activation_consistency.priority_review[0];
   $("#report-recording").textContent = state.recording.replaceAll("_", " ");
-  $("#stat-left-cadence").textContent = cadence.left.median_strokes_per_min.toFixed(0);
-  $("#stat-right-cadence").textContent = cadence.right.median_strokes_per_min.toFixed(0);
-  $("#stat-focus-muscle").textContent = primaryName;
-  $("#stat-focus-score").textContent = `週期一致度 ${primary.cycle_consistency.toFixed(3)}`;
+  $("#stat-left-cadence").textContent = Number.isFinite(cadence?.left?.median_strokes_per_min)
+    ? cadence.left.median_strokes_per_min.toFixed(0)
+    : "—";
+  $("#stat-right-cadence").textContent = Number.isFinite(cadence?.right?.median_strokes_per_min)
+    ? cadence.right.median_strokes_per_min.toFixed(0)
+    : "—";
+  $("#stat-focus-muscle").textContent = primary?.muscle || "—";
+  $("#stat-focus-score").textContent = Number.isFinite(primary?.cycle_consistency)
+    ? `週期一致度 ${primary.cycle_consistency.toFixed(3)}`
+    : "週期一致度 —";
   $("#report-headline").textContent = assessment.headline;
   $("#report-overview").textContent = assessment.summary;
   $("#program-findings").replaceChildren(...assessment.findings.map((finding) => {
@@ -265,12 +327,23 @@ function selectView(view) {
 function syncAllCharts() {
   if (state.syncing) return;
   state.syncing = true;
-  $("#time-slider").value = state.start;
-  $("#time-value").textContent = timeText(state.start);
+  syncIntervalSelector();
   [...document.querySelectorAll("[data-muscle-chart]")].map((element) => element.id)
     .concat("resistance-chart", "cadence-chart", "sync-left-chart", "sync-right-chart")
     .forEach((id) => Plotly.relayout(id, { "xaxis.range": range() }));
   state.syncing = false;
+}
+
+function syncIntervalSelector() {
+  const end = Math.min(state.start + state.window, state.duration);
+  const startSlider = $("#interval-start-slider");
+  const endSlider = $("#interval-end-slider");
+  startSlider.value = state.start;
+  endSlider.value = end;
+  $("#interval-value").textContent = `${timeLabel(state.start)}–${timeLabel(end)}`;
+  const scale = Math.max(state.duration, 1);
+  $("#interval-range").style.setProperty("--range-start", `${(state.start / scale) * 100}%`);
+  $("#interval-range").style.setProperty("--range-end", `${(end / scale) * 100}%`);
 }
 
 function bindChartRange(id) {
@@ -303,10 +376,10 @@ async function loadRecording(recording) {
   colors = state.muscles.map((_, index) => css(`--color-series-${(index % 14) + 1}`));
   state.duration = Math.floor(preview.at(-1).time_s - preview[0].time_s);
   state.start = 0;
-  state.window = Number($("#window-select").value);
-  $("#time-slider").max = Math.max(0, state.duration - state.window);
-  $("#time-slider").value = 0;
-  $("#time-value").textContent = timeText(0);
+  state.window = Math.min(600, state.duration);
+  $("#interval-start-slider").max = state.duration;
+  $("#interval-end-slider").max = state.duration;
+  syncIntervalSelector();
   renderSummary();
   renderReport();
   renderJointAnalysis();
@@ -323,25 +396,19 @@ async function boot() {
   const selector = $("#recording-select");
   selector.replaceChildren(...manifest.recordings.map(({ id, label }) => new Option(label, id)));
   selector.addEventListener("change", () => loadRecording(selector.value));
-  $("#time-slider").addEventListener("input", (event) => { state.start = Number(event.target.value); syncAllCharts(); });
-  $("#window-select").addEventListener("change", (event) => {
-    state.window = Number(event.target.value);
-    $("#time-slider").max = Math.max(0, state.duration - state.window);
-    state.start = Math.min(state.start, Number($("#time-slider").max));
+  $("#interval-start-slider").addEventListener("input", (event) => {
+    const end = Math.min(state.start + state.window, state.duration);
+    state.start = Math.min(Number(event.target.value), Math.max(0, end - 1));
+    state.window = Math.max(1, end - state.start);
     syncAllCharts();
   });
-  const dialog = $("#command-palette");
-  $("#command-button").addEventListener("click", () => dialog.showModal());
+  $("#interval-end-slider").addEventListener("input", (event) => {
+    const end = Math.max(Number(event.target.value), state.start + 1);
+    state.window = end - state.start;
+    syncAllCharts();
+  });
   $("#print-report").addEventListener("click", () => window.print());
   document.querySelectorAll(".view-tab").forEach((button) => button.addEventListener("click", () => selectView(button.dataset.view)));
-  document.querySelectorAll(".command-view").forEach((button) => button.addEventListener("click", () => {
-    selectView(button.dataset.view);
-    dialog.close();
-    $(".view-tabs").scrollIntoView({ behavior: "smooth", block: "start" });
-  }));
-  document.addEventListener("keydown", (event) => {
-    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") { event.preventDefault(); dialog.showModal(); }
-  });
   await loadRecording(manifest.recordings[0].id);
 }
 
