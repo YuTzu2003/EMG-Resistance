@@ -20,6 +20,11 @@
     "notch_filter": "not applied",
     "output_unit": "V"
   },
+  "comparison_conditions": {
+    "sampling_rate_hz": 2150,
+    "electrode_position_recorded": false,
+    "resistance_setting_recorded": false
+  },
   "synchronization": {
     "alignment_source": "estimated_signal_phase_left_reference",
     "method": "left Vastus Medialis and Lateralis RMS phase, right-side phase checked separately",

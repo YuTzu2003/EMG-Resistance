@@ -1,7 +1,7 @@
 const state = {
   recording: null, preview: [], cadence: [], metrics: [], metadata: null,
   analysis: null, muscles: [], reportAvailability: new Map(),
-  start: 0, window: 600, syncing: false, activeView: "assessment",
+  start: 0, window: 600, syncing: false, activeView: "assessment", comparisonCache: new Map(),
 };
 const $ = (selector) => document.querySelector(selector);
 const css = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
@@ -313,6 +313,7 @@ function renderReport() {
 
 function selectView(view) {
   state.activeView = view;
+  $(".control-bar").hidden = view === "compare";
   document.querySelectorAll("[data-view-panel]").forEach((panel) => { panel.hidden = panel.dataset.viewPanel !== view; });
   document.querySelectorAll(".view-tab").forEach((button) => {
     const active = button.dataset.view === view;
@@ -390,11 +391,277 @@ async function loadRecording(recording) {
   selectView(state.activeView);
 }
 
+async function loadComparisonRecording(recording) {
+  if (!state.comparisonCache.has(recording)) {
+    const root = `data/${recording}`;
+    state.comparisonCache.set(recording, Promise.all([
+      fetchText(`${root}/synchronized_data/frontend_preview_10hz.csv`).then(parseCsv),
+      fetchText(`${root}/pedaling_cadence/pedal_stroke_events.csv`).then(parseCsv),
+      fetchText(`${root}/muscle_analysis/muscle_activation_metrics.csv`).then(parseCsv),
+      fetchJson(`${root}/recording_metadata.json`),
+    ]).then(([preview, cadence, metrics, metadata]) => ({ recording, preview, cadence, metrics, metadata })));
+  }
+  return state.comparisonCache.get(recording);
+}
+
+function median(values) {
+  const sorted = values.filter(Number.isFinite).sort((a, b) => a - b);
+  if (!sorted.length) return null;
+  const middle = Math.floor(sorted.length / 2);
+  return sorted.length % 2 ? sorted[middle] : (sorted[middle - 1] + sorted[middle]) / 2;
+}
+
+function mean(values) {
+  const finite = values.filter(Number.isFinite);
+  return finite.length ? finite.reduce((total, value) => total + value, 0) / finite.length : null;
+}
+
+function comparisonMuscleLabel(channel) {
+  const names = {
+    "BICEPS FEMORIS": "股二頭肌", "VASTUS MEDIALIS": "股內側肌", "RECTUS FEMORIS": "股直肌",
+    "VASTUS LATERALIS": "股外側肌", "TIBIALIS ANTERIOR": "脛前肌", "GASTROCNEMIUS": "腓腸肌", "SOLEUS": "比目魚肌",
+  };
+  const match = channel.match(/^([LR])\s+(.+?)(?:: EMG \d+)?$/);
+  if (!match) return channel;
+  return `${match[1] === "L" ? "左" : "右"}${names[match[2]] || match[2]}`;
+}
+
+function comparisonMetricLabel(metric) {
+  return ({ median_rms_uv: "RMS 中位數 (µV)", cycle_consistency: "週期一致度", cadence: "踏頻 (同側踏／分)", resistance: "阻力絕對值中位數" })[metric];
+}
+
+function comparisonQuality(records) {
+  const baseline = records[0];
+  const warnings = ["公開比較資料未包含取樣率、電極位置或阻力設定；請以原始分析輸出確認這些條件。"];
+  records.slice(1).forEach((record) => {
+    if (JSON.stringify(record.metadata.processing) !== JSON.stringify(baseline.metadata.processing)) {
+      warnings.push(`${record.recording} 的帶通或 RMS 處理設定與基準不同。`);
+    }
+    const channels = new Set(record.metrics.map((row) => row.channel));
+    const missing = baseline.metrics.map((row) => row.channel).filter((channel) => !channels.has(channel));
+    if (missing.length) warnings.push(`${record.recording} 缺少 ${missing.join("、")}。`);
+  });
+  return warnings;
+}
+
+async function renderComparison() {
+  const baselineId = $("#comparison-baseline").value;
+  const comparisonId = $("#comparison-recording").value;
+  const quality = $("#comparison-quality");
+  const table = $("#comparison-table");
+  if (!baselineId || !comparisonId || baselineId === comparisonId) {
+    quality.textContent = "請選擇兩筆不同的基準與比較資料。";
+    table.replaceChildren();
+    Plotly.purge("comparison-chart");
+    return;
+  }
+  const [baseline, comparison] = await Promise.all([baselineId, comparisonId].map(loadComparisonRecording));
+  populateComparisonMuscles(baseline);
+  const metric = $("#comparison-metric").value;
+  const channel = $("#comparison-muscle").value;
+  const side = $("#comparison-side").value;
+  const baselineValue = comparisonValue(baseline, metric, channel, side);
+  const value = comparisonValue(comparison, metric, channel, side);
+  const difference = Number.isFinite(baselineValue) && Number.isFinite(value) ? value - baselineValue : null;
+  const percent = Number.isFinite(difference) && baselineValue !== 0 ? difference / Math.abs(baselineValue) * 100 : null;
+  const rows = [{ record: comparison, value, difference, percent }];
+  const warnings = comparisonQuality([baseline, comparison]);
+  quality.textContent = warnings.length ? `可比性提醒：${warnings.join(" ")}` : "資料品質檢查：處理設定與肌肉通道可直接比較。";
+  quality.classList.toggle("has-warning", warnings.length > 0);
+  table.replaceChildren(...rows.map((row) => {
+    const element = document.createElement("tr");
+    [row.record.recording, baselineValue, row.value, row.difference, row.percent === null ? null : `${row.percent.toFixed(1)}%`]
+      .forEach((value) => {
+        const cell = document.createElement("td");
+        cell.textContent = typeof value === "number" ? value.toFixed(3) : value ?? "N/A";
+        element.append(cell);
+      });
+    return element;
+  }));
+  const data = [{ x: [baseline.recording, comparison.recording], y: [baselineValue, value], type: "bar", marker: { color: ["#1f5d84", "#00856a"] }, hovertemplate: "%{x}<br>%{y:.3f}<extra></extra>" }];
+  Plotly.react("comparison-chart", data, { ...baseLayout(), height: 330, yaxis: { ...baseLayout().yaxis, title: comparisonMetricLabel(metric) } }, { responsive: true, displaylogo: false });
+  const best = rows.filter((row) => Number.isFinite(row.percent)).sort((a, b) => Math.abs(b.percent) - Math.abs(a.percent))[0];
+  const activationNote = metric === "median_rms_uv" ? " RMS 反映相對活化量，不能直接當作肌力。" : "";
+  $("#comparison-draft").value = best
+    ? `${channel || comparisonMetricLabel(metric)}：相較於 ${baseline.recording}，${best.record.recording} 的 ${comparisonMetricLabel(metric)} ${best.percent >= 0 ? "增加" : "降低"} ${Math.abs(best.percent).toFixed(1)}%。${activationNote}${warnings.length ? " 解讀前請先確認上方可比性提醒。" : " 可搭配其他肌肉與側別持續觀察。"}`
+    : "選取指標在目前資料或時間區段沒有可比較的有效數值。";
+}
+
+function comparisonSamplingRate(metadata) {
+  const exported = metadata.comparison_conditions?.sampling_rate_hz;
+  if (typeof exported === "number") return exported;
+  const rms = metadata.processing?.rms;
+  return Number.isFinite(Number(rms?.window_samples)) && Number(rms?.window_s) > 0
+    ? Number(rms.window_samples) / Number(rms.window_s) : null;
+}
+
+function comparisonQuality(records) {
+  const [baseline, comparison] = records;
+  const messages = [];
+  const baselineRate = comparisonSamplingRate(baseline.metadata);
+  const comparisonRate = comparisonSamplingRate(comparison.metadata);
+  if (Number.isFinite(baselineRate) && baselineRate === comparisonRate) {
+    messages.push(`已確認 EMG 取樣率相同：${baselineRate.toFixed(0)} Hz。`);
+  } else if (Number.isFinite(baselineRate) && Number.isFinite(comparisonRate)) {
+    messages.push(`取樣率不同：${baselineRate.toFixed(0)} Hz vs ${comparisonRate.toFixed(0)} Hz。`);
+  } else {
+    messages.push("取樣率無法從目前匯出的資料確認。");
+  }
+  const baselineProcessing = JSON.stringify(baseline.metadata.processing);
+  const comparisonProcessing = JSON.stringify(comparison.metadata.processing);
+  messages.push(baselineProcessing === comparisonProcessing
+    ? "已確認帶通濾波與 RMS 設定相同。"
+    : "帶通濾波或 RMS 設定不同，請避免直接判讀絕對差異。");
+  const conditions = [baseline.metadata.comparison_conditions, comparison.metadata.comparison_conditions];
+  if (!conditions.every((item) => item?.electrode_position_recorded)) {
+    messages.push("電極位置未在原始 metadata 記錄，因此無法由系統確認兩次位置相同。");
+  }
+  if (!conditions.every((item) => item?.resistance_setting_recorded)) {
+    messages.push("阻力設定未在原始 metadata 記錄，因此請以測試紀錄確認條件相同。");
+  }
+  return messages;
+}
+
+function comparisonChange(before, after) {
+  const difference = Number.isFinite(before) && Number.isFinite(after) ? after - before : null;
+  return { difference, percent: Number.isFinite(difference) && before !== 0 ? difference / Math.abs(before) * 100 : null };
+}
+
+function resistanceStats(record, side) {
+  const column = side === "Left" ? "crankLeft" : "CrankRight";
+  const values = record.preview.map((row) => Math.abs(Number(row[column]))).filter(Number.isFinite).sort((a, b) => a - b);
+  if (!values.length) return { min: null, median: null, mean: null, max: null };
+  return { min: values[0], median: median(values), mean: values.reduce((total, value) => total + value, 0) / values.length, max: values.at(-1) };
+}
+
+function appendComparisonCells(row, values) {
+  values.forEach((value) => {
+    const cell = document.createElement("td");
+    cell.textContent = typeof value === "number" ? value.toFixed(3) : value ?? "N/A";
+    row.append(cell);
+  });
+  return row;
+}
+
+function renderDefinitionList(host, entries) {
+  const list = document.createElement("dl");
+  entries.forEach(([label, value]) => {
+    const term = document.createElement("dt");
+    const detail = document.createElement("dd");
+    term.textContent = label;
+    detail.textContent = value;
+    list.append(term, detail);
+  });
+  host.replaceChildren(list);
+}
+
+async function renderAllComparison() {
+  const baselineId = $("#comparison-baseline").value;
+  const comparisonId = $("#comparison-recording").value;
+  const muscleTable = $("#comparison-table");
+  const resistanceTable = $("#comparison-resistance-table");
+  if (!baselineId || !comparisonId || baselineId === comparisonId) {
+    muscleTable.replaceChildren();
+    resistanceTable.replaceChildren();
+    return;
+  }
+  const [baseline, comparison] = await Promise.all([baselineId, comparisonId].map(loadComparisonRecording));
+  const muscles = baseline.metrics.map((before) => {
+    const after = comparison.metrics.find((row) => row.channel === before.channel);
+    const baselineMean = mean(baseline.preview.map((row) => Number(row[before.channel]) * 1e6));
+    const comparisonMean = mean(comparison.preview.map((row) => Number(row[before.channel]) * 1e6));
+    const average = comparisonChange(baselineMean, comparisonMean);
+    const rms = comparisonChange(Number(before.median_rms_uv), Number(after?.median_rms_uv));
+    const p90 = comparisonChange(Number(before.p90_rms_uv), Number(after?.p90_rms_uv));
+    const consistency = comparisonChange(Number(before.cycle_consistency), Number(after?.cycle_consistency));
+    return { before, after, baselineMean, comparisonMean, average, rms, p90, consistency };
+  });
+  muscleTable.replaceChildren(...muscles.map((entry) => appendComparisonCells(document.createElement("tr"), [
+    comparisonMuscleLabel(entry.before.channel), entry.before.side === "Left" ? "左側" : "右側", entry.baselineMean, entry.comparisonMean,
+    entry.average.percent === null ? null : `${entry.average.percent.toFixed(1)}%`,
+    entry.p90.percent === null ? null : `${entry.p90.percent.toFixed(1)}%`,
+    entry.consistency.difference,
+  ])));
+  const ordered = muscles.filter((entry) => Number.isFinite(entry.average.percent)).sort((a, b) => Math.abs(a.average.percent) - Math.abs(b.average.percent));
+  Plotly.react("comparison-muscle-values-chart", [
+    { x: muscles.map((entry) => comparisonMuscleLabel(entry.before.channel)), y: muscles.map((entry) => entry.baselineMean), name: baseline.recording, type: "bar", marker: { color: "#1f5d84" } },
+    { x: muscles.map((entry) => comparisonMuscleLabel(entry.before.channel)), y: muscles.map((entry) => entry.comparisonMean), name: comparison.recording, type: "bar", marker: { color: "#00856a" } },
+  ], { ...baseLayout(), height: 420, barmode: "group", xaxis: { tickangle: -45, gridcolor: css("--color-rule"), zerolinecolor: css("--color-rule") }, yaxis: { ...baseLayout().yaxis, title: "Mean RMS (µV)" } }, { responsive: true, displaylogo: false });
+  Plotly.react("comparison-chart", [{
+    x: ordered.map((entry) => entry.average.percent),
+    y: ordered.map((entry) => comparisonMuscleLabel(entry.before.channel)),
+    type: "bar", orientation: "h", marker: { color: ordered.map((entry) => entry.before.side === "Left" ? "#00856a" : "#7c3aed") },
+    hovertemplate: "%{y}<br>Mean RMS change %{x:.1f}%<extra></extra>",
+  }], { ...baseLayout(), height: Math.max(360, ordered.length * 28), xaxis: { title: "RMS median change (%)", gridcolor: css("--color-rule"), zeroline: true, zerolinecolor: css("--color-rule") }, yaxis: { ...baseLayout().yaxis, automargin: true } }, { responsive: true, displaylogo: false });
+  const resistanceRows = [];
+  const resistanceBySide = [];
+  const categories = [];
+  const baselineValues = [];
+  const comparisonValues = [];
+  ["Left", "Right"].forEach((side) => {
+    const before = resistanceStats(baseline, side);
+    const after = resistanceStats(comparison, side);
+    resistanceBySide.push({ side, before, after });
+    ["min", "median", "mean", "max"].forEach((statistic) => {
+      const change = comparisonChange(before[statistic], after[statistic]);
+      resistanceRows.push(appendComparisonCells(document.createElement("tr"), [side === "Left" ? "左側" : "右側", statistic, before[statistic], after[statistic], change.difference, change.percent === null ? null : `${change.percent.toFixed(1)}%`]));
+      categories.push(`${side === "Left" ? "L" : "R"} ${statistic}`);
+      baselineValues.push(before[statistic]);
+      comparisonValues.push(after[statistic]);
+    });
+  });
+  resistanceTable.replaceChildren(...resistanceRows);
+  Plotly.react("comparison-resistance-chart", [
+    { x: categories, y: baselineValues, name: baseline.recording, type: "bar", marker: { color: "#1f5d84" } },
+    { x: categories, y: comparisonValues, name: comparison.recording, type: "bar", marker: { color: "#e8590c" } },
+  ], { ...baseLayout(), height: 300, barmode: "group", xaxis: { gridcolor: css("--color-rule"), zerolinecolor: css("--color-rule") }, yaxis: { ...baseLayout().yaxis, title: "Absolute resistance (source unit)" } }, { responsive: true, displaylogo: false });
+  const baselineMuscleMean = mean(muscles.map((entry) => entry.baselineMean));
+  const comparisonMuscleMean = mean(muscles.map((entry) => entry.comparisonMean));
+  const baselinePeak = [...muscles].filter((entry) => Number.isFinite(entry.baselineMean)).sort((a, b) => b.baselineMean - a.baselineMean)[0];
+  const comparisonPeak = [...muscles].filter((entry) => Number.isFinite(entry.comparisonMean)).sort((a, b) => b.comparisonMean - a.comparisonMean)[0];
+  renderDefinitionList($("#comparison-emg-analysis"), [
+    [`${baseline.recording} 全肌肉平均 RMS`, Number.isFinite(baselineMuscleMean) ? `${baselineMuscleMean.toFixed(2)} µV` : "N/A"],
+    [`${comparison.recording} 全肌肉平均 RMS`, Number.isFinite(comparisonMuscleMean) ? `${comparisonMuscleMean.toFixed(2)} µV` : "N/A"],
+    [`${baseline.recording} 最高平均活化`, baselinePeak ? `${comparisonMuscleLabel(baselinePeak.before.channel)} (${baselinePeak.baselineMean.toFixed(2)} µV)` : "N/A"],
+    [`${comparison.recording} 最高平均活化`, comparisonPeak ? `${comparisonMuscleLabel(comparisonPeak.before.channel)} (${comparisonPeak.comparisonMean.toFixed(2)} µV)` : "N/A"],
+  ]);
+  renderDefinitionList($("#comparison-resistance-analysis"), resistanceBySide.flatMap(({ side, before, after }) => [
+    [`${side === "Left" ? "左" : "右"}側 ${baseline.recording} 平均／最大`, `${before.mean?.toFixed(3) ?? "N/A"} / ${before.max?.toFixed(3) ?? "N/A"}`],
+    [`${side === "Left" ? "左" : "右"}側 ${comparison.recording} 平均／最大`, `${after.mean?.toFixed(3) ?? "N/A"} / ${after.max?.toFixed(3) ?? "N/A"}`],
+  ]));
+  const highlights = [...ordered].sort((a, b) => Math.abs(b.average.percent) - Math.abs(a.average.percent)).slice(0, 3)
+    .map((entry) => `${comparisonMuscleLabel(entry.before.channel)} ${entry.average.percent >= 0 ? "增加" : "降低"} ${Math.abs(entry.average.percent).toFixed(1)}%`).join("；");
+  const overallMuscleChange = comparisonChange(baselineMuscleMean, comparisonMuscleMean);
+  const baselineResistanceMean = mean(resistanceBySide.map(({ before }) => before.mean));
+  const comparisonResistanceMean = mean(resistanceBySide.map(({ after }) => after.mean));
+  const overallResistanceChange = comparisonChange(baselineResistanceMean, comparisonResistanceMean);
+  $("#comparison-overall-text").textContent = `完整紀錄比較顯示，全肌肉平均 RMS ${overallMuscleChange.percent === null ? "無法計算" : `${overallMuscleChange.percent >= 0 ? "增加" : "降低"} ${Math.abs(overallMuscleChange.percent).toFixed(1)}%`}；雙側平均阻力 ${overallResistanceChange.percent === null ? "無法計算" : `${overallResistanceChange.percent >= 0 ? "增加" : "降低"} ${Math.abs(overallResistanceChange.percent).toFixed(1)}%`}。肌肉變化最大者為：${highlights || "無可比較數值"}。RMS 為相對活化量，請與阻力及週期一致度一併解讀。`;
+  $("#comparison-draft").value = `前測 ${baseline.recording} 與後測 ${comparison.recording} 的完整錄製比較：RMS 相對活化變化最大的肌肉為 ${highlights || "無可比較數值"}。RMS 是相對活化量，不能直接當作肌力；請連同 P90、週期一致度、踏頻、阻力與資料品質一起判讀。`;
+}
+
+function downloadComparisonDraft() {
+  const text = $("#comparison-draft").value.trim();
+  if (!text) return;
+  const blob = new Blob([text + "\n"], { type: "text/markdown;charset=utf-8" });
+  const link = Object.assign(document.createElement("a"), { href: URL.createObjectURL(blob), download: "emg-comparison-summary.md" });
+  link.click();
+  URL.revokeObjectURL(link.href);
+}
+
 async function boot() {
   const manifest = await fetchJson("data/manifest.json");
   state.reportAvailability = new Map(manifest.recordings.map(({ id, report_available }) => [id, report_available === true]));
   const selector = $("#recording-select");
   selector.replaceChildren(...manifest.recordings.map(({ id, label }) => new Option(label, id)));
+  const comparisonBaseline = $("#comparison-baseline");
+  const comparisonRecording = $("#comparison-recording");
+  const comparisonOptions = manifest.recordings.map(({ id, label }) => new Option(label, id));
+  comparisonBaseline.replaceChildren(...comparisonOptions.map((option) => option.cloneNode(true)));
+  comparisonRecording.replaceChildren(...comparisonOptions);
+  if (comparisonRecording.options.length > 1) comparisonRecording.selectedIndex = 1;
+  [comparisonBaseline, comparisonRecording]
+    .forEach((element) => element.addEventListener("change", () => renderAllComparison()));
+  $("#download-comparison").addEventListener("click", downloadComparisonDraft);
   selector.addEventListener("change", () => loadRecording(selector.value));
   $("#interval-start-slider").addEventListener("input", (event) => {
     const end = Math.min(state.start + state.window, state.duration);
@@ -410,6 +677,7 @@ async function boot() {
   $("#print-report").addEventListener("click", () => window.print());
   document.querySelectorAll(".view-tab").forEach((button) => button.addEventListener("click", () => selectView(button.dataset.view)));
   await loadRecording(manifest.recordings[0].id);
+  await renderAllComparison();
 }
 
 boot().catch((error) => {

@@ -8,9 +8,9 @@
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB" crossorigin="anonymous">
   <link href="https://cdn.jsdelivr.net/npm/element-plus@2.14.6/dist/index.css" rel="stylesheet">
   <link rel="stylesheet" href="tokens.css?v=20260927o">
-  <link rel="stylesheet" href="assets/site.css?v=20260927p">
+  <link rel="stylesheet" href="assets/site.css?v=20260929a">
   <script src="assets/vendor/plotly-4.1.1.min.js?v=20260927" defer></script>
-  <script src="assets/app.js?v=20260927q" defer></script>
+  <script src="assets/app.js?v=20260929a" defer></script>
 </head>
 <body>
   <main id="top">
@@ -21,6 +21,7 @@
         <button class="view-tab is-active" type="button" role="tab" data-view="assessment" aria-controls="view-assessment" aria-selected="true">測試評估</button>
         <button class="view-tab" type="button" role="tab" data-view="emg" aria-controls="view-emg" aria-selected="false">肌電細節</button>
         <button class="view-tab" type="button" role="tab" data-view="load" aria-controls="view-load" aria-selected="false">阻力與同步</button>
+        <button class="view-tab" type="button" role="tab" data-view="compare" aria-controls="view-compare" aria-selected="false">資料比較</button>
       </nav>
     </div>
     <section class="control-bar" aria-label="紀錄與時間控制">
@@ -134,6 +135,39 @@
         <article class="sync-chart-card"><h3>右側訊號</h3><div id="sync-right-chart" class="chart sync-chart" aria-label="右側 EMG 與阻力時間同步折線圖"></div></article>
       </div>
     </section>
+    </div>
+
+    <div id="view-compare" class="view-panel" role="tabpanel" data-view-panel="compare" hidden>
+      <section class="workbench-section comparison-section" aria-labelledby="comparison-title">
+        <div class="section-heading">
+          <div><h2 id="comparison-title">多筆資料比較</h2></div>
+          <p>比較兩筆完整測試的彙總結果，不做跨資料時間同步；數值皆由已公開的彙總資料計算，不會上傳原始 EMG。</p>
+        </div>
+        <div class="comparison-controls">
+          <label>基準資料<select id="comparison-baseline" class="form-select"></select></label>
+          <label>比較資料<select id="comparison-recording" class="form-select"></select></label>
+        </div>
+        <p id="comparison-range" class="comparison-note">比較範圍：每筆資料的完整有效錄製區段。</p>
+        <div class="comparison-chart-grid">
+          <article><h3>全肌肉平均 RMS</h3><div id="comparison-muscle-values-chart" class="chart" aria-label="兩次紀錄的全肌肉平均 RMS"></div></article>
+          <article><h3>肌肉 RMS 差距</h3><div id="comparison-chart" class="chart" aria-label="各肌肉 RMS 前後差距"></div></article>
+        </div>
+        <div class="comparison-table-wrap"><table class="comparison-table"><thead><tr><th>肌肉</th><th>側別</th><th>前測平均 RMS (µV)</th><th>後測平均 RMS (µV)</th><th>平均 RMS 變化</th><th>P90 變化</th><th>一致度變化</th></tr></thead><tbody id="comparison-table"></tbody></table></div>
+        <h3 class="comparison-subtitle">阻力計摘要（絕對值）</h3>
+        <div id="comparison-resistance-chart" class="chart chart--compact" aria-label="阻力計統計比較圖表"></div>
+        <div class="comparison-table-wrap"><table class="comparison-table"><thead><tr><th>側別</th><th>統計量</th><th>前測</th><th>後測</th><th>差異</th><th>百分比</th></tr></thead><tbody id="comparison-resistance-table"></tbody></table></div>
+        <div class="comparison-individual-grid">
+          <article class="comparison-individual"><h3>阻力計個別分析</h3><div id="comparison-resistance-analysis"></div></article>
+          <article class="comparison-individual"><h3>肌電個別分析</h3><div id="comparison-emg-analysis"></div></article>
+        </div>
+        <section class="comparison-overall" aria-labelledby="comparison-overall-title"><h3 id="comparison-overall-title">兩次紀錄總評</h3><p id="comparison-overall-text"></p></section>
+        <section class="comparison-draft" aria-labelledby="comparison-draft-title">
+          <h3 id="comparison-draft-title">可編輯比較摘要</h3>
+          <p>此頁的摘要為本機數值說明。若需 LLM 草稿，請使用 <code>main.py compare</code>；它只會讀取結構化比較結果，並產生待確認草稿。</p>
+          <textarea id="comparison-draft" rows="9" aria-label="可編輯比較摘要"></textarea>
+          <button id="download-comparison" class="el-button el-button--primary" type="button">確認並下載摘要</button>
+        </section>
+      </section>
     </div>
   </main>
 </body>

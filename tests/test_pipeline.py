@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 import tempfile
 import unittest
@@ -7,6 +8,8 @@ import pandas as pd
 
 from emg_pipeline.auto_sync import estimate_offset
 from emg_pipeline.aligned_analysis import detect_cadence
+from emg_pipeline.comparison import build_comparison_summary, confirm_comparison_draft, write_comparison_draft
+from emg_pipeline.config import AppConfig
 from emg_pipeline.filtering import filter_emg_csv
 from emg_pipeline.muscle_metrics import activation_at_time, cycle_metrics
 from emg_pipeline.hpf import read_hpf_metadata
@@ -194,6 +197,42 @@ class PipelineTests(unittest.TestCase):
         row, instant = activation_at_time(aligned, ["L TEST", "R TEST"], 10.0)
         self.assertAlmostEqual(row["time_s"], 10.0)
         self.assertEqual(len(instant), 2)
+
+    def test_comparison_creates_structured_draft_and_requires_confirmation(self):
+        with tempfile.TemporaryDirectory(dir="output") as directory:
+            root = Path(directory)
+            channels = ["L TEST: EMG 1", "R TEST: EMG 2"]
+            for name, scale in (("baseline", 1.0), ("after", 1.2)):
+                recording = root / name
+                (recording / "muscle_analysis").mkdir(parents=True)
+                (recording / "synchronized_data").mkdir()
+                (recording / "pedaling_cadence").mkdir()
+                (recording / "recording_metadata.json").write_text(json.dumps({
+                    "duration_s": 10,
+                    "processing": {"bandpass": {"cutoff_hz": [20, 450]}, "rms": {"window_s": 0.1}},
+                    "synchronization": {"left_correlation": 0.8, "right_correlation": 0.7},
+                }))
+                pd.DataFrame({
+                    "channel": channels, "side": ["Left", "Right"],
+                    "median_rms_uv": [10 * scale, 20 * scale],
+                    "p90_rms_uv": [15 * scale, 30 * scale],
+                    "cycle_consistency": [0.7, 0.8], "missing_percent": [0, 0],
+                }).to_csv(recording / "muscle_analysis" / "muscle_activation_metrics.csv", index=False)
+                pd.DataFrame({"time_s": [0, 5, 10], "crankLeft": [1, 2, 3], "CrankRight": [2, 3, 4]}).to_csv(
+                    recording / "synchronized_data" / "frontend_preview_10hz.csv", index=False)
+                pd.DataFrame({"time_s": [1, 6], "side": ["Left", "Right"], "strokes_per_min": [60, 62]}).to_csv(
+                    recording / "pedaling_cadence" / "pedal_stroke_events.csv", index=False)
+            summary = build_comparison_summary(root / "baseline", root / "after", side="Left")
+            entry = summary["muscles"][0]["comparison"]
+            self.assertEqual(entry["median_rms_uv"]["percent_change"], 20.0)
+            self.assertEqual(entry["p90_rms_uv"]["percent_change"], 20.0)
+            self.assertEqual(summary["settings"]["side"], "Left")
+            self.assertIn("no cross-recording time alignment", summary["settings"]["analysis_scope"])
+            paths = write_comparison_draft(root / "comparison", summary, AppConfig())
+            self.assertTrue(paths["draft"].is_file())
+            self.assertFalse((root / "comparison" / "comparison_report.md").exists())
+            report = confirm_comparison_draft(root / "comparison")
+            self.assertTrue(report.is_file())
 
 
 if __name__ == "__main__":

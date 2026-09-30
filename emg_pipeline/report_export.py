@@ -25,12 +25,19 @@ LEGACY_FILES = (
 
 def _public_metadata(source: Path) -> dict:
     metadata = json.loads(source.read_text(encoding="utf-8"))
+    rates = sorted({channel.get("sampling_rate_hz") for channel in metadata.get("channels", [])
+                    if channel.get("sampling_rate_hz") is not None})
     return {
         "recording": source.parent.name,
         "duration_s": metadata["synchronization"]["time_end_s"] - metadata["synchronization"]["time_start_s"],
         "processing": metadata["processing"],
         "synchronization": metadata["synchronization"],
         "cadence": metadata["cadence"],
+        "comparison_conditions": {
+            "sampling_rate_hz": rates[0] if len(rates) == 1 else rates or None,
+            "electrode_position_recorded": "electrode_position" in metadata,
+            "resistance_setting_recorded": "resistance_setting" in metadata,
+        },
     }
 
 def export_static_data(output_root: Path,site_data_root: Path,recordings: tuple[str, ...] | None = None,) -> None:

@@ -3,6 +3,7 @@ from dataclasses import replace
 import json
 from pathlib import Path
 from .analysis_reporting import generate_report
+from .comparison import build_comparison_summary, confirm_comparison_draft, write_comparison_draft
 from .config import DEFAULT_ENV_FILE, DEFAULT_OUTPUT_ROOT, DEFAULT_SITE_ROOT, load_config
 from .signal_processing import process_recording
 from .report_export import export_static_data
@@ -131,6 +132,31 @@ def _verify(args: argparse.Namespace) -> int:
         print(f"  OK  {name}")
     return 0
 
+def _comparison_output(args: argparse.Namespace) -> Path:
+    if args.output is not None:
+        return args.output.expanduser().resolve()
+    names = "_vs_".join((args.baseline_output.name, args.comparison_output.name))
+    return (args.baseline_output.parent / "comparisons" / names).resolve()
+
+def _compare(args: argparse.Namespace) -> int:
+    summary = build_comparison_summary(
+        args.baseline_output,
+        args.comparison_output,
+        muscles=args.muscle,
+        side=args.side,
+    )
+    output = _comparison_output(args)
+    paths = write_comparison_draft(output, summary, _config(args))
+    print(f"Comparison summary: {paths['summary']}")
+    print(f"Reviewable draft: {paths['draft']}")
+    print("Confirm with: python main.py compare-confirm <comparison folder> [--text-file edited.md]")
+    return 0
+
+def _confirm_comparison(args: argparse.Namespace) -> int:
+    report = confirm_comparison_draft(args.comparison_output, args.text_file)
+    print(f"Confirmed comparison report: {report}")
+    return 0
+
 def _add_storage_options(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--output",
@@ -182,6 +208,20 @@ def build_parser() -> argparse.ArgumentParser:
     verify.add_argument("recording_output", type=Path, help="Existing output folder for one recording")
     _add_site_option(verify)
     verify.set_defaults(handler=_verify)
+
+    compare = commands.add_parser("compare", help="Compare one before/after pair and create a reviewable report draft")
+    compare.add_argument("baseline_output", type=Path, help="Processed output folder used as the baseline")
+    compare.add_argument("comparison_output", type=Path, help="Processed output folder for the after/comparison recording")
+    compare.add_argument("--output", type=Path, help="Folder for comparison_summary.json and the draft report")
+    compare.add_argument("--muscle", action="append", help="Exact EMG channel to include; repeat to select multiple")
+    compare.add_argument("--side", choices=("Both", "Left", "Right"), default="Both")
+    _add_report_options(compare)
+    compare.set_defaults(handler=_compare)
+
+    confirm = commands.add_parser("compare-confirm", help="Confirm a reviewed comparison draft as the final report")
+    confirm.add_argument("comparison_output", type=Path, help="Folder created by the compare command")
+    confirm.add_argument("--text-file", type=Path, help="Optional reviewer-edited Markdown to confirm")
+    confirm.set_defaults(handler=_confirm_comparison)
     return parser
 
 def main(argv: list[str] | None = None) -> int:
